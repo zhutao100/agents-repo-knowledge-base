@@ -1,4 +1,4 @@
-mod artifacts;
+pub mod artifacts;
 mod check;
 mod deps;
 mod git_inputs;

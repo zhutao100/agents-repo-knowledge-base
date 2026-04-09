@@ -1,17 +1,17 @@
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct KbMeta {
     pub kb_format_version: u32,
     pub schemas: Vec<KbSchema>,
 }
 
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct KbSchema {
     pub name: String,
     pub version: u32,
     pub required: bool,
 }
 
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct TreeRecord {
     pub path: String,
     pub kind: String,
@@ -29,7 +29,7 @@ pub struct TreeRecord {
     pub top_symbols: Option<Vec<String>>,
 }
 
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct SymbolRecord {
     pub symbol_id: String,
     pub lang: String,
@@ -49,7 +49,7 @@ pub struct SymbolRecord {
     pub scope: Option<String>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct DepEdge {
     pub from_path: String,
     pub kind: String,
