@@ -142,7 +142,7 @@ If the ctags invocation emits file-mtime-like fields, they MUST be ignored (or p
 For each ctags tag record:
 
 * map to the v1 `symbols.jsonl` schema in `docs/SPECS.md`
-* compute `symbol_id` exactly per §7.1 (`sym:v1:<sha256>`)
+* compute `symbol_id` exactly per §7.1 (`sym:v2:<sha256_96>`)
 * sanitize:
   * normalize paths to repo-relative `/` form
   * ensure `raw` fields do not contain embedded newlines if they are persisted

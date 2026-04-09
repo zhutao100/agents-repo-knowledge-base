@@ -204,7 +204,7 @@ fn validate_tree_records(records: &[TreeRecord]) -> Result<(), KbError> {
 fn validate_symbol_records(records: &[SymbolRecord]) -> Result<(), KbError> {
     let mut last_id: Option<&str> = None;
     for r in records {
-        if !r.symbol_id.starts_with("sym:v1:") || r.symbol_id.len() != "sym:v1:".len() + 64 {
+        if !is_valid_symbol_id(&r.symbol_id) {
             return Err(KbError::invalid_argument("invalid symbol_id")
                 .with_detail("symbol_id", &r.symbol_id));
         }
@@ -228,6 +228,22 @@ fn validate_symbol_records(records: &[SymbolRecord]) -> Result<(), KbError> {
         last_id = Some(r.symbol_id.as_str());
     }
     Ok(())
+}
+
+fn is_valid_symbol_id(symbol_id: &str) -> bool {
+    const PREFIX: &str = "sym:v2:";
+    const HEX_LEN: usize = 24;
+
+    if !symbol_id.starts_with(PREFIX) {
+        return false;
+    }
+    let suffix = &symbol_id[PREFIX.len()..];
+    if suffix.len() != HEX_LEN {
+        return false;
+    }
+    suffix
+        .bytes()
+        .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 fn validate_dep_edges(edges: &[DepEdge]) -> Result<(), KbError> {

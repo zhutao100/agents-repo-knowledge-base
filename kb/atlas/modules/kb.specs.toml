@@ -2,4 +2,9 @@ id = "kb.specs"
 title = "Specs and schemas"
 tags = ["specs"]
 entrypoints = ["docs/DESIGN.md", "docs/SPECS.md", "docs/dev_plans/0001-cli-and-io.md"]
-edit_points = ["docs/SPECS.md"]
+edit_points = [
+  "docs/SPECS.md",
+  "docs/dev_plans/0002-index-gen.md",
+  "docs/dev_plans/0003-pack-and-plan.md",
+  "docs/dev_plans/0005-describe-and-list.md",
+]

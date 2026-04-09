@@ -277,7 +277,7 @@ Rules:
   ```json
   {
     "path": "src/lib.rs",
-    "symbol_id": "sym:v1:...",
+    "symbol_id": "sym:v2:...",
     "start_line": 1,
     "end_line": 10,
     "text": "..."

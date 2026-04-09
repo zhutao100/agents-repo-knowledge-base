@@ -2,3 +2,4 @@ id = "kb.index"
 title = "Index generation"
 tags = ["index"]
 entrypoints = ["src/index/"]
+edit_points = ["src/index/symbols.rs"]

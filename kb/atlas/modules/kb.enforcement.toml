@@ -2,3 +2,4 @@ id = "kb.enforcement"
 title = "Enforcement and policy checks"
 tags = ["enforcement"]
 entrypoints = ["src/policy/", "scripts/"]
+edit_points = ["src/policy/lint.rs"]
