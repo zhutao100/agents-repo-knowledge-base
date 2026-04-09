@@ -3,6 +3,8 @@ use clap::{Parser, Subcommand, ValueEnum};
 use crate::error::KbError;
 use crate::index::{index_check, index_regen, IndexScope};
 use crate::io::json::write_json_stdout;
+use crate::policy::lint::lint_all;
+use crate::policy::obligations::obligations_check;
 use crate::query::pack::{
     pack_diff, pack_diff_text, pack_selectors, pack_selectors_text, SelectorInputs,
 };
@@ -31,6 +33,8 @@ enum Commands {
     Index(IndexCommand),
     Plan(PlanCommand),
     Pack(PackCommand),
+    Lint(LintCommand),
+    Obligations(ObligationsCommand),
 }
 
 #[derive(serde::Serialize)]
@@ -110,6 +114,34 @@ struct PackSelectorsCommand {
 
     #[arg(long)]
     snippet_lines: u64,
+}
+
+#[derive(Debug, Parser)]
+struct LintCommand {
+    #[command(subcommand)]
+    command: LintCommands,
+}
+
+#[derive(Debug, Subcommand)]
+enum LintCommands {
+    All,
+}
+
+#[derive(Debug, Parser)]
+struct ObligationsCommand {
+    #[command(subcommand)]
+    command: ObligationsCommands,
+}
+
+#[derive(Debug, Subcommand)]
+enum ObligationsCommands {
+    Check(ObligationsCheckCommand),
+}
+
+#[derive(Debug, Parser)]
+struct ObligationsCheckCommand {
+    #[arg(long)]
+    diff_source: String,
 }
 
 #[derive(Debug, Parser)]
@@ -224,6 +256,27 @@ fn run(cli: Cli) -> Result<(), KbError> {
                     OutputFormat::Json => write_json_stdout(&out)
                         .map_err(|err| KbError::internal(err, "failed to write json"))?,
                     OutputFormat::Text => println!("{}", pack_selectors_text(&out)),
+                }
+            }
+        },
+        Commands::Lint(cmd) => match cmd.command {
+            LintCommands::All => {
+                lint_all()?;
+                match cli.format {
+                    OutputFormat::Json => write_json_stdout(&OkJson { ok: true })
+                        .map_err(|err| KbError::internal(err, "failed to write json"))?,
+                    OutputFormat::Text => println!("ok"),
+                }
+            }
+        },
+        Commands::Obligations(cmd) => match cmd.command {
+            ObligationsCommands::Check(cmd) => {
+                let diff_source = parse_diff_source(&cmd.diff_source)?;
+                obligations_check(&diff_source)?;
+                match cli.format {
+                    OutputFormat::Json => write_json_stdout(&OkJson { ok: true })
+                        .map_err(|err| KbError::internal(err, "failed to write json"))?,
+                    OutputFormat::Text => println!("ok"),
                 }
             }
         },

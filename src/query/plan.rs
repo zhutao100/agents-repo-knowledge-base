@@ -7,6 +7,7 @@ use crate::error::KbError;
 use crate::query::read::{read_text, reader_for};
 use crate::repo::diff::{list_changed_paths, DiffPathChange};
 use crate::repo::diff_source::DiffSource;
+use crate::repo::prefix::normalize_path_prefix;
 use crate::repo::root::discover_repo_root;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
@@ -128,7 +129,7 @@ fn evaluate_obligations(
     let mut require_session = false;
 
     for rule in &config.rule {
-        let prefix = normalize_prefix(&rule.when_path_prefix)?;
+        let prefix = normalize_path_prefix(&rule.when_path_prefix)?;
         if !changed_paths.iter().any(|p| p.starts_with(prefix.as_str())) {
             continue;
         }
@@ -164,50 +165,6 @@ fn evaluate_obligations(
             session_capsule: require_session,
         },
     ))
-}
-
-fn normalize_prefix(input: &str) -> Result<String, KbError> {
-    let trimmed = input.trim();
-    if trimmed.is_empty() {
-        return Err(KbError::invalid_argument(
-            "when_path_prefix must not be empty",
-        ));
-    }
-    if trimmed.starts_with('/') {
-        return Err(
-            KbError::invalid_argument("when_path_prefix must be repo-relative")
-                .with_detail("when_path_prefix", trimmed),
-        );
-    }
-    if trimmed.contains('\0') || trimmed.contains('\n') || trimmed.contains('\r') {
-        return Err(
-            KbError::invalid_argument("when_path_prefix contains invalid characters")
-                .with_detail("when_path_prefix", trimmed),
-        );
-    }
-
-    let ends_with_slash = trimmed.ends_with('/');
-    let normalized = trimmed.replace('\\', "/");
-
-    let mut parts = Vec::new();
-    for part in normalized.split('/') {
-        if part.is_empty() || part == "." {
-            continue;
-        }
-        if part == ".." {
-            return Err(
-                KbError::invalid_argument("when_path_prefix must not contain '..'")
-                    .with_detail("when_path_prefix", trimmed),
-            );
-        }
-        parts.push(part);
-    }
-
-    let mut out = parts.join("/");
-    if ends_with_slash && !out.is_empty() {
-        out.push('/');
-    }
-    Ok(out)
 }
 
 pub fn plan_diff_text(out: &PlanDiffOutput) -> String {
