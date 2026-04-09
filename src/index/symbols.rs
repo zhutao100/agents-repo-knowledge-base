@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -9,6 +10,7 @@ use crate::error::KbError;
 use crate::index::artifacts::SymbolRecord;
 use crate::io::jsonl::write_jsonl_file;
 use crate::repo::diff_source::DiffSource;
+use crate::repo::git::git_output;
 use crate::repo::path::RepoPath;
 use crate::repo::reader::DiffSourceReader;
 
@@ -155,6 +157,7 @@ fn materialize_input_root(
     std::fs::create_dir_all(&input_root)
         .map_err(|err| KbError::internal(err, "failed to create kb/.tmp/ctags_input"))?;
 
+    let executable = list_executable_paths(repo_root, diff_source)?;
     let reader = DiffSourceReader::new_at_root(repo_root.to_path_buf(), diff_source.clone());
     for file_path in tracked_files {
         if file_path.ends_with('/') {
@@ -172,9 +175,61 @@ fn materialize_input_root(
             .map_err(|err| KbError::internal(err, "failed to write ctags input"))?;
         file.write_all(&bytes)
             .map_err(|err| KbError::internal(err, "failed to write ctags input"))?;
+
+        let is_exec = executable.contains(file_path);
+        set_ctags_input_permissions(&out_path, is_exec)?;
     }
 
     Ok(input_root)
+}
+
+fn list_executable_paths(
+    repo_root: &Path,
+    diff_source: &DiffSource,
+) -> Result<BTreeSet<String>, KbError> {
+    let bytes = match diff_source {
+        DiffSource::Staged | DiffSource::Worktree => {
+            git_output(repo_root, &["ls-files", "-s", "-z"])?
+        }
+        DiffSource::Commit(sha) => git_output(repo_root, &["ls-tree", "-r", "-z", sha])?,
+    };
+
+    let text = std::str::from_utf8(&bytes).map_err(|err| {
+        KbError::backend_failed("git output is not valid utf-8")
+            .with_detail("cause", err.to_string())
+    })?;
+
+    let mut out = BTreeSet::new();
+    for record in text.split('\0') {
+        if record.is_empty() {
+            continue;
+        }
+        let (meta, path) = record.split_once('\t').ok_or_else(|| {
+            KbError::backend_failed("unexpected git file mode output").with_detail("record", record)
+        })?;
+        let mode = meta.split_whitespace().next().unwrap_or("");
+        if mode == "100755" {
+            out.insert(path.to_string());
+        }
+    }
+
+    Ok(out)
+}
+
+#[cfg(unix)]
+fn set_ctags_input_permissions(path: &Path, executable: bool) -> Result<(), KbError> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let mode = if executable { 0o755 } else { 0o644 };
+    let perm = std::fs::Permissions::from_mode(mode);
+    std::fs::set_permissions(path, perm)
+        .map_err(|err| KbError::internal(err, "failed to set ctags input permissions"))?;
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn set_ctags_input_permissions(_path: &Path, _executable: bool) -> Result<(), KbError> {
+    Ok(())
 }
 
 fn run_ctags(repo_root: &Path, tracked_files: &[String]) -> Result<Vec<CtagsRecord>, KbError> {

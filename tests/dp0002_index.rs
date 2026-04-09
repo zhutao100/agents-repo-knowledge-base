@@ -97,3 +97,38 @@ fn dp0002_index_regen_is_deterministic_and_check_works() {
 
     let _ = std::fs::remove_dir_all(repo_root);
 }
+
+#[cfg(unix)]
+#[test]
+fn dp0002_index_regen_staged_matches_worktree_for_exec_shebang_files() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let repo_root = temp_repo_dir();
+    run(std::process::Command::new("git")
+        .arg("init")
+        .arg("-q")
+        .current_dir(&repo_root));
+
+    write_file(
+        repo_root.join(".githooks/pre-commit").as_path(),
+        "#!/usr/bin/env bash\n\nacquire_lock() { echo ok; }\n",
+    );
+    let hook = repo_root.join(".githooks/pre-commit");
+    let mut perms = std::fs::metadata(&hook).unwrap().permissions();
+    perms.set_mode(0o755);
+    std::fs::set_permissions(&hook, perms).unwrap();
+
+    run(std::process::Command::new("git")
+        .args(["add", "-A"])
+        .current_dir(&repo_root));
+
+    index_regen_at(&repo_root, &DiffSource::Worktree, IndexScope::All).expect("worktree regen");
+    let symbols_worktree = std::fs::read(repo_root.join("kb/gen/symbols.jsonl")).unwrap();
+
+    index_regen_at(&repo_root, &DiffSource::Staged, IndexScope::All).expect("staged regen");
+    let symbols_staged = std::fs::read(repo_root.join("kb/gen/symbols.jsonl")).unwrap();
+
+    assert_eq!(symbols_worktree, symbols_staged);
+
+    let _ = std::fs::remove_dir_all(repo_root);
+}
