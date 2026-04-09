@@ -6,7 +6,6 @@
 - `docs/DESIGN.md` — current design draft for the `kb` CLI, artifacts, and enforcement model.
 - `docs/SPECS.md` — normative determinism specs (formats, IDs, diff-source semantics, budgets).
 - `docs/dev_plans/INDEX.md` — indexed, decision-complete implementation plans.
-- `docs/proposals/proposals_evaluation.md` — why the design favors a generated index + typed retrieval over prose.
 
 ## Non-negotiables (agent-facing interface)
 
