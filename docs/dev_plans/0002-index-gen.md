@@ -63,13 +63,29 @@ Both commands MUST support `--format {json|text}`, but `index regen` primarily p
 
 ### 2) Implement “tracked path set” via Git
 
-The generator MUST derive the path universe from Git:
+The generator MUST derive the path universe from Git, and it MUST treat `--diff-source` as the source-of-truth for both:
 
-* tracked files: `git ls-files -z`
-* for diff-scoped decisions:
-  * staged: `git diff --cached --name-only -z`
-  * worktree: `git diff --name-only -z`
-  * commit: `git diff-tree --no-commit-id --name-only -r -z <sha>`
+* the file set being indexed, and
+* the file contents being read.
+
+This is required for correctness under pre-commit gating (staged/index reads) and for reproducible “as-of commit” regeneration.
+
+Path universe (file set) by diff-source:
+
+* `staged` / `worktree`: `git ls-files -z`
+* `commit:<sha>`: `git ls-tree -r --name-only -z <sha>`
+
+Changed-path discovery (for `--scope changed` and any diff-scoped behavior):
+
+* `staged`: `git diff --cached --name-status -z --find-renames`
+* `worktree`: `git diff --name-status -z --find-renames`
+* `commit:<sha>`: compare to first parent by default:
+  * if `<sha>` has a parent: `git diff --name-status -z --find-renames <sha>^ <sha>`
+  * if `<sha>` is a root commit: use the empty tree as base (`4b825dc642cb6eb9a060e54bf8d69288fbee4904`)
+
+Indexing MUST exclude generated artifacts and caches to avoid self-referential churn:
+
+* exclude any path under `kb/gen/`, `kb/cache/`, and `kb/.tmp/` from the indexed file set.
 
 All paths must be normalized via the DP-0001 path module before being used.
 
@@ -109,10 +125,13 @@ Execute ctags:
 
 * working directory: repo root
 * environment: `LC_ALL=C`
-* file list: newline-separated tracked file paths (repo-relative)
+* input: newline-separated tracked file paths (repo-relative), provided via `-L -`
 * required flags:
   * `--output-format=json`
   * `--sort=no` (kb sorts itself)
+  * `--quiet=yes`
+  * `-f -` (write JSON tags to stdout)
+  * `-L -` (read file list from stdin)
   * `--fields=+n+e+S+l+z` (enable line/end/signature/language/long kind)
   * `--fields=-T` (disable epoch/timestamp fields)
 
@@ -150,7 +169,10 @@ Stable-sort edges per `docs/SPECS.md` and write JSONL.
 `index check` MUST:
 
 1. regenerate artifacts into a temporary directory under the target repo (e.g., `kb/.tmp/regen/`),
-2. compare the generated content byte-for-byte to the tracked `kb/gen/*` files,
+2. compare the generated content byte-for-byte to the existing `kb/gen/*` artifacts **as-of the selected `--diff-source`**:
+   * `staged`: read `kb/gen/*` from the Git index (not the worktree)
+   * `worktree`: read `kb/gen/*` from the filesystem
+   * `commit:<sha>`: read `kb/gen/*` from that commit
 3. exit 0 if identical, else exit non-zero with a JSON error describing which artifact(s) differ,
 4. remove the temporary directory on both success and failure.
 

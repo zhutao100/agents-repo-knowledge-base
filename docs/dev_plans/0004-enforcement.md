@@ -52,15 +52,29 @@ The exact gate sequence and flags MUST live in one place (a script or a single c
 
 * `kb/config/obligations.toml` rules (prefix match),
 * the diff (changed paths) under the selected `--diff-source`,
-* the presence/validity of required knowledge artifacts in the target repo.
+* the presence/validity of required knowledge artifacts in the target repo,
+* and whether required knowledge artifacts were updated in the same diff when mandated by policy.
 
 No heuristics, no free text, no fuzzy matching.
 
-### 3) “Satisfied” means “present and valid” in v1
+### 3) “Satisfied” means “present, valid, and updated in the diff” in v1
 
-In v1, an obligation is satisfied when the required artifact exists and passes lint/validation. The gate does **not** require the artifact to be modified in the same commit unless the rule explicitly requires a session capsule.
+In v1, an obligation is satisfied only when the required knowledge artifact:
 
-This avoids meaningless churn (e.g., forcing a module card edit even when it remains valid).
+* exists as-of the selected `--diff-source`,
+* is valid (parseable, schema-valid where applicable),
+* and is updated in the same diff when the obligation requires an in-session update.
+
+Concrete rules (v1):
+
+* `require_module_card = "<MODULE_ID>"` is satisfied iff:
+  * `kb/atlas/modules/<MODULE_ID>.toml` exists, and
+  * the diff contains `kb/atlas/modules/<MODULE_ID>.toml` as added or modified (rename counts as modified).
+* `require_fact_types = ["..."]` is satisfied iff:
+  * `kb/facts/facts.jsonl` exists and is updated in the diff (added or modified), and
+  * as-of `--diff-source`, it contains at least one fact record of each required type.
+
+This is intentionally strict: it forces in-session capture rather than allowing off-session doc gardening to “maybe” fix things later.
 
 ### 4) Session capsule obligation is always “must be added/updated in the diff”
 
@@ -80,6 +94,7 @@ Target repo root containing `kb/`.
 
 1. Parseability:
    * `kb/config/obligations.toml` must parse as TOML.
+   * if present, `kb/config/tags.toml` and `kb/config/kb.toml` must parse as TOML.
 2. Repo-boundedness:
    * any paths inside configs that represent repo paths must be normalized and must not contain `..` after normalization.
 3. Generated artifacts exist:
@@ -90,6 +105,10 @@ Target repo root containing `kb/`.
 5. Forbidden fields:
    * reject absolute paths in any persisted artifacts,
    * reject timestamps/epoch fields if found (best-effort scanning for known keys like `epoch`, `timestamp`, `mtime`).
+6. Optional overlays (validate if present):
+   * parse all `kb/atlas/modules/*.toml` as TOML (if directory exists),
+   * parse `kb/facts/facts.jsonl` as JSONL objects with at least `fact_id` and `type` fields (if file exists),
+   * parse `kb/sessions/**/*.json` as JSON objects (if any exist).
 
 Output:
 
@@ -109,10 +128,14 @@ Fail the commit/CI run if the diff triggers requirements that are missing or inv
 
 ### Algorithm (locked)
 
-1. Compute `plan = kb plan diff --diff-source <...> --policy <...> --format json`.
+1. Compute `plan = kb plan diff --diff-source <...> --policy default --format json`.
 2. For each required item in `plan.required`:
-   * `module_cards[]`: each required module card file must exist at `kb/atlas/modules/<module_id>.toml`.
-   * `fact_types[]`: there must exist at least one record of each required type in `kb/facts/facts.jsonl` (format to be specified later; in v1 this check MAY be a presence check only).
+   * `module_cards[]`:
+     * `kb/atlas/modules/<module_id>.toml` must exist, and
+     * the diff must include `kb/atlas/modules/<module_id>.toml` as added or modified.
+   * `fact_types[]`:
+     * `kb/facts/facts.jsonl` must exist and be added or modified in the diff, and
+     * it must contain at least one fact record of each required type as-of `--diff-source`.
    * `session_capsule == true`: the diff must include at least one path under `kb/sessions/` as added or modified.
 3. If any requirement is unmet, emit a JSON error with details and exit non-zero.
 
@@ -126,8 +149,10 @@ On success:
 
 On failure, include detail keys:
 
-* `missing_module_cards`: array of module ids
-* `missing_fact_types`: array of types
+* `missing_module_cards`: array of module ids (missing file)
+* `missing_module_card_updates`: array of module ids (file exists but was not updated in the diff)
+* `missing_fact_types`: array of types (no record present as-of diff-source)
+* `missing_fact_updates`: array of types (facts file exists but was not updated in the diff)
 * `missing_session_capsule`: boolean
 
 ---

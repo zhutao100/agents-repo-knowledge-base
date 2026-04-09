@@ -25,3 +25,5 @@ Plans are written to be implemented without additional design decisions. If a pl
 | DP-0002   | `docs/dev_plans/0002-index-gen.md` | Deterministic index generation + `index check` |
 | DP-0003   | `docs/dev_plans/0003-pack-and-plan.md` | Deterministic `plan diff` + `pack` planners |
 | DP-0004   | `docs/dev_plans/0004-enforcement.md` | Pre-commit/CI gates and target-repo integration |
+| DP-0005   | `docs/dev_plans/0005-describe-and-list.md` | Typed discovery (`list`) + deterministic lookups (`describe`) |
+| DP-0006   | `docs/dev_plans/0006-sessions.md` | Session capsules (`kb session *`) and templates |

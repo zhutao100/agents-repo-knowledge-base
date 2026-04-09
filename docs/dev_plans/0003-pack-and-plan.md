@@ -18,7 +18,7 @@ Commands exist and are deterministic:
 
 * `kb plan diff --diff-source {staged|worktree|commit:<sha>} --policy {default|strict} --format {json|text}`
 * `kb pack diff --diff-source {staged|worktree|commit:<sha>} --radius <DEP_RADIUS:int> --max-bytes <N> --snippet-lines <N> --format {json|text}`
-* `kb pack selectors [--path <PATH>]... [--symbol <SYMBOL_ID>]... --max-bytes <N> --snippet-lines <N> --format {json|text}`
+* `kb pack selectors [--path <PATH>]... [--module <MODULE_ID>]... [--symbol <SYMBOL_ID>]... [--fact <FACT_ID>]... --max-bytes <N> --snippet-lines <N> --format {json|text}`
 
 All three MUST:
 
@@ -45,6 +45,12 @@ In the target repo:
 * `kb/gen/symbols.jsonl` (unless disabled)
 * `kb/gen/deps.jsonl` (unless disabled)
 * `kb/config/obligations.toml` (for `plan diff` and enforcement planning)
+
+Optional-but-supported inputs:
+
+* `kb/gen/xrefs.jsonl` (if present, may be used to improve inclusion)
+* `kb/atlas/modules/*.toml` (module cards, when present)
+* `kb/facts/facts.jsonl` (facts, when present)
 
 ---
 
@@ -76,7 +82,19 @@ All planners follow the global drop policy in `docs/SPECS.md`:
 
 Within each section, records are stable-sorted as defined in `docs/SPECS.md` (or by the comparator defined below when output-only records are introduced).
 
-### 3) Rename handling
+### 3) Artifact reads are “as-of diff-source”
+
+For commands that accept `--diff-source`, all reads of kb inputs MUST be performed as-of that diff-source:
+
+* `kb/gen/*`
+* `kb/config/*`
+* `kb/atlas/*`
+* `kb/facts/*`
+* `kb/sessions/*`
+
+This ensures pre-commit gating correctness (`staged` reads from the Git index) and reproducible “as-of commit” planning.
+
+### 4) Rename handling
 
 Diff parsing MUST treat renames deterministically:
 
@@ -131,6 +149,7 @@ One JSON object (key order is significant):
   "changed_paths": [
     { "path": "src/payments/core.rs", "change_kind": "modify" }
   ],
+  "affected_modules": ["payments.core"],
   "triggered_rules": [
     { "id": "module_card.payments", "when_path_prefix": "src/payments/" }
   ],
@@ -145,8 +164,14 @@ One JSON object (key order is significant):
 Rules:
 
 * `changed_paths` is stable-sorted by `path`, then `change_kind`.
+* `affected_modules` is a stable-sorted unique array of module IDs.
 * `triggered_rules` is stable-sorted by `id`.
 * `required.module_cards` and `required.fact_types` are stable-sorted unique arrays.
+
+`affected_modules` (v1) MUST be the stable-sorted unique union of:
+
+* `required.module_cards`, plus
+* any module IDs deterministically derivable from other triggered rules in future versions.
 
 `change_kind` allowed set (v1): `add`, `modify`, `delete`, `rename`, `unknown`.
 
@@ -170,6 +195,7 @@ No free prose paragraphs; keep it grep-friendly and stable.
 Return a bounded bundle of machine-addressable context for the current changes in **one call** (IO churn reduction), without fuzzy search. It is a deterministic planner over:
 
 * `changed_paths` from the diff,
+* obligations triggered by the diff (module cards / fact types / session capsule requirement),
 * dependency edges (`deps.jsonl`, optionally `xrefs.jsonl`),
 * symbol definitions for included paths (`symbols.jsonl`),
 * optional code excerpts from included symbol definitions.
@@ -184,21 +210,25 @@ Inputs:
 
 Steps:
 
-1. Seed path set `S0` with the changed file paths that are:
+1. Compute `plan = kb plan diff --diff-source <...> --policy default --format json`.
+2. Collect overlays from `plan.required`:
+   * module cards: `plan.required.module_cards` (if the corresponding file exists under `kb/atlas/modules/`)
+   * facts: if `kb/facts/facts.jsonl` exists, include fact records whose `type` is in `plan.required.fact_types` (stable-sorted by `fact_id`)
+3. Seed path set `S0` with the changed file paths that are:
    * present in `kb/gen/tree.jsonl` as `kind=file`, and
    * not deleted at the selected diff-source (for deletes, include the path in metadata but do not attempt to read contents).
-2. Build an undirected adjacency list `G` over file paths using `deps.jsonl` edges where `to_path` is present:
+4. Build an undirected adjacency list `G` over file paths using `deps.jsonl` edges where `to_path` is present:
    * add neighbor `from_path -> to_path`
    * add neighbor `to_path -> from_path`
    * ignore edges whose endpoints are not present in the current `tree.jsonl` file set
-3. Expand `S` by BFS up to `radius` hops from `S0`:
+5. Expand `S` by BFS up to `radius` hops from `S0`:
    * neighbors are visited in stable lexicographic order by path
    * ties are broken by path string only
-4. For the final included file path set `S`, collect:
+6. For the final included file path set `S`, collect:
    * `tree_records`: tree.jsonl records for paths in `S`
    * `symbol_records`: symbols.jsonl records where `path` ∈ `S`
    * `dep_edges`: deps.jsonl edges where `from_path` ∈ `S` and (`to_path` ∈ `S` or `to_external` present)
-5. Compute `snippets` (optional):
+7. Compute `snippets` (optional):
    * For each included file path, choose up to `K` symbol defs to excerpt:
      * select symbols in stable order by `symbol_id`
      * excerpt at most 1 symbol per file in v1 (to reduce churn); future versions may raise this
@@ -217,9 +247,15 @@ One JSON object (key order is significant):
   "diff_source": "staged",
   "radius": 1,
   "budgets": { "max_bytes": 120000, "snippet_lines": 80 },
-  "changed_paths": [
-    { "path": "src/payments/core.rs", "change_kind": "modify" }
-  ],
+  "plan": {
+    "policy": "default",
+    "changed_paths": [{ "path": "src/payments/core.rs", "change_kind": "modify" }],
+    "affected_modules": ["payments.core"],
+    "triggered_rules": [{ "id": "module_card.payments", "when_path_prefix": "src/payments/" }],
+    "required": { "module_cards": ["payments.core"], "fact_types": ["api_endpoint"], "session_capsule": false }
+  },
+  "modules": [],
+  "facts": [],
   "tree": [],
   "symbols": [],
   "deps": [],
@@ -232,6 +268,11 @@ Rules:
 * `tree` records conform to `kb/gen/tree.jsonl` schema.
 * `symbols` records conform to `kb/gen/symbols.jsonl` schema.
 * `deps` records conform to `kb/gen/deps.jsonl` schema.
+* `modules` record schema (key order significant):
+  ```json
+  { "module_id": "payments.core", "path": "kb/atlas/modules/payments.core.toml", "text": "..." }
+  ```
+* `facts` are JSON objects from `kb/facts/facts.jsonl` (required fields: `fact_id`, `type`).
 * `snippets` record schema (key order significant):
   ```json
   {
@@ -248,6 +289,8 @@ Stable ordering:
 * `tree` sorted by `path`
 * `symbols` sorted by `symbol_id`
 * `deps` sorted per `docs/SPECS.md`
+* `modules` sorted by `module_id`
+* `facts` sorted by `fact_id`
 * `snippets` sorted by `path`, then `symbol_id`
 
 Budgeting:
@@ -255,16 +298,16 @@ Budgeting:
 * Apply `--max-bytes` to the serialized JSON output.
 * If adding a section would exceed the budget:
   * drop `snippets` first (truncate to fit; stable order),
-  * then drop `deps` edges,
-  * then drop `symbols`,
-  * then drop `tree`,
-  * but NEVER drop `changed_paths`, `diff_source`, `radius`, or `budgets`.
+  * then drop generated index sections in this order: `deps` → `symbols` → `tree`,
+  * then drop overlays in this order: `facts` → `modules`,
+  * but NEVER drop `plan`, `diff_source`, `radius`, or `budgets`.
 
 ### Text output (`--format text`)
 
 Produce a deterministic report:
 
 * changed paths
+* required overlays (module cards / facts)
 * included file set (paths)
 * symbols summary (count + top N symbol IDs per file, stable)
 * deps summary (count)
@@ -284,9 +327,13 @@ Return a bounded context pack from explicit selectors only. No diff computation 
   * matching `tree` record for the file (or directory record if path ends with `/`),
   * all `symbols` records with `path == <PATH>`,
   * all `deps` edges with `from_path == <PATH>`.
+* `--module <MODULE_ID>` includes:
+  * the raw module card at `kb/atlas/modules/<MODULE_ID>.toml` (if present) as a `{module_id,path,text}` record.
 * `--symbol <SYMBOL_ID>` includes:
   * the symbol record,
   * a definition snippet for that symbol if file content is available under diff-source `worktree` (selectors pack uses worktree reads in v1).
+* `--fact <FACT_ID>` includes:
+  * the matching fact record from `kb/facts/facts.jsonl` (if present).
 
 If multiple selectors are provided, the pack is the union of included records, stable-sorted.
 
@@ -294,9 +341,9 @@ If multiple selectors are provided, the pack is the union of included records, s
 
 Same schema as `pack diff`, except:
 
-* there is no `changed_paths` field; instead emit `selectors`:
+* there is no `plan` field; instead emit `selectors`:
   ```json
-  { "selectors": { "paths": ["..."], "symbols": ["..."] } }
+  { "selectors": { "paths": ["..."], "modules": ["..."], "symbols": ["..."], "facts": ["..."] } }
   ```
 
 Budgeting and drop policy are the same as `pack diff`.

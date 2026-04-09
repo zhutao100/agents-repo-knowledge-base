@@ -155,7 +155,7 @@ Notes:
 
 Notes:
 
-* `SYMBOL_ID` is a stable ID produced by the indexer (e.g., `<lang>:<path>:<qualified_name>:<kind>`), validated strictly.
+* `SYMBOL_ID` is a stable ID produced by the indexer and validated strictly (see `docs/SPECS.md` for the normative format).
 
 #### 3) List (no fuzzy search)
 
@@ -214,7 +214,7 @@ These are structured records to capture session-only truth that doc-gardening ca
 Example `kb/config/obligations.toml` in a target repo:
 
 ```toml
-# If anything under src/payments changes, require the payments.core module card updated (or regen proves unchanged).
+# If anything under src/payments changes, require the payments.core module card updated in the same diff.
 [[rule]]
 id = "module_card.payments"
 when_path_prefix = "src/payments/"
