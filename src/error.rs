@@ -51,6 +51,22 @@ impl KbError {
         }
     }
 
+    pub fn backend_missing(message: impl Into<String>) -> Self {
+        Self {
+            code: ErrorCode::BackendMissing,
+            message: message.into(),
+            details: Vec::new(),
+        }
+    }
+
+    pub fn backend_failed(message: impl Into<String>) -> Self {
+        Self {
+            code: ErrorCode::BackendFailed,
+            message: message.into(),
+            details: Vec::new(),
+        }
+    }
+
     pub fn internal(err: impl fmt::Display, context: impl Into<String>) -> Self {
         Self {
             code: ErrorCode::Internal,

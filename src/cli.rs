@@ -1,9 +1,9 @@
 use clap::{Parser, Subcommand, ValueEnum};
 
 use crate::error::KbError;
+use crate::index::{index_check, index_regen, IndexScope};
 use crate::io::json::write_json_stdout;
 use crate::repo::diff_source::{DiffSource, DiffSourceParseError};
-use crate::repo::root::discover_repo_root;
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
 enum OutputFormat {
@@ -24,25 +24,7 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 enum Commands {
     Version,
-    Debug(DebugCommand),
-}
-
-#[derive(Debug, Parser)]
-struct DebugCommand {
-    #[command(subcommand)]
-    command: DebugCommands,
-}
-
-#[derive(Debug, Subcommand)]
-enum DebugCommands {
-    #[command(name = "diff-source")]
-    DiffSource(DebugDiffSourceCommand),
-}
-
-#[derive(Debug, Parser)]
-struct DebugDiffSourceCommand {
-    #[arg(long)]
-    diff_source: String,
+    Index(IndexCommand),
 }
 
 #[derive(serde::Serialize)]
@@ -52,8 +34,35 @@ struct VersionJson<'a> {
 }
 
 #[derive(serde::Serialize)]
-struct DebugDiffSourceJson<'a> {
-    diff_source: &'a str,
+struct OkJson {
+    ok: bool,
+}
+
+#[derive(Debug, Parser)]
+struct IndexCommand {
+    #[command(subcommand)]
+    command: IndexCommands,
+}
+
+#[derive(Debug, Subcommand)]
+enum IndexCommands {
+    Regen(IndexRegenCommand),
+    Check(IndexCheckCommand),
+}
+
+#[derive(Debug, Parser)]
+struct IndexRegenCommand {
+    #[arg(long, value_enum, default_value_t = IndexScope::All)]
+    scope: IndexScope,
+
+    #[arg(long)]
+    diff_source: String,
+}
+
+#[derive(Debug, Parser)]
+struct IndexCheckCommand {
+    #[arg(long)]
+    diff_source: String,
 }
 
 pub fn main() -> std::process::ExitCode {
@@ -88,20 +97,23 @@ fn run(cli: Cli) -> Result<(), KbError> {
                 println!("kb {}", env!("CARGO_PKG_VERSION"));
             }
         },
-        Commands::Debug(debug) => match debug.command {
-            DebugCommands::DiffSource(cmd) => {
-                discover_repo_root().map_err(|err| err.with_message("not a git repo"))?;
-
-                let parsed = DiffSource::parse(&cmd.diff_source)
-                    .map_err(|err| map_diff_source_parse_error(err, &cmd.diff_source))?;
-                let diff_source = parsed.as_display();
-
+        Commands::Index(index) => match index.command {
+            IndexCommands::Regen(cmd) => {
+                let diff_source = parse_diff_source(&cmd.diff_source)?;
+                index_regen(&diff_source, cmd.scope)?;
                 match cli.format {
-                    OutputFormat::Json => write_json_stdout(&DebugDiffSourceJson {
-                        diff_source: diff_source.as_str(),
-                    })
-                    .map_err(|err| KbError::internal(err, "failed to write json"))?,
-                    OutputFormat::Text => println!("{diff_source}"),
+                    OutputFormat::Json => write_json_stdout(&OkJson { ok: true })
+                        .map_err(|err| KbError::internal(err, "failed to write json"))?,
+                    OutputFormat::Text => println!("ok"),
+                }
+            }
+            IndexCommands::Check(cmd) => {
+                let diff_source = parse_diff_source(&cmd.diff_source)?;
+                index_check(&diff_source)?;
+                match cli.format {
+                    OutputFormat::Json => write_json_stdout(&OkJson { ok: true })
+                        .map_err(|err| KbError::internal(err, "failed to write json"))?,
+                    OutputFormat::Text => println!("ok"),
                 }
             }
         },
@@ -122,4 +134,8 @@ fn map_diff_source_parse_error(err: DiffSourceParseError, input: &str) -> KbErro
             KbError::invalid_argument("commit sha is required").with_detail("diff_source", input)
         }
     }
+}
+
+fn parse_diff_source(input: &str) -> Result<DiffSource, KbError> {
+    DiffSource::parse(input).map_err(|err| map_diff_source_parse_error(err, input))
 }

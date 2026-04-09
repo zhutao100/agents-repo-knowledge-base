@@ -14,10 +14,14 @@ pub struct DiffSourceReader {
 
 impl DiffSourceReader {
     pub fn new(diff_source: DiffSource) -> Result<Self, KbError> {
-        Ok(Self {
-            repo_root: discover_repo_root()?,
+        Ok(Self::new_at_root(discover_repo_root()?, diff_source))
+    }
+
+    pub fn new_at_root(repo_root: PathBuf, diff_source: DiffSource) -> Self {
+        Self {
+            repo_root,
             diff_source,
-        })
+        }
     }
 
     pub fn read_bytes(&self, path: &RepoPath) -> Result<Vec<u8>, KbError> {
