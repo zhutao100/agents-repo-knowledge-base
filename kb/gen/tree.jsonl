@@ -1,9 +1,13 @@
 {"path":".githooks/","kind":"dir"}
 {"path":".githooks/.prek-autostage-env","kind":"file","bytes":33,"lines":1,"lang":"unknown"}
 {"path":".githooks/pre-commit","kind":"file","bytes":2515,"lines":100,"lang":"unknown"}
+{"path":".github/","kind":"dir"}
+{"path":".github/workflows/","kind":"dir"}
+{"path":".github/workflows/ci.yml","kind":"file","bytes":659,"lines":31,"lang":"yaml"}
 {"path":".gitignore","kind":"file","bytes":40,"lines":4,"lang":"unknown"}
-{"path":".pre-commit-config.yaml","kind":"file","bytes":1064,"lines":34,"lang":"yaml"}
-{"path":"AGENTS.md","kind":"file","bytes":1580,"lines":26,"lang":"markdown"}
+{"path":".pre-commit-config.yaml","kind":"file","bytes":1297,"lines":40,"lang":"yaml"}
+{"path":"AGENTS.md","kind":"file","bytes":1860,"lines":34,"lang":"markdown"}
+{"path":"AGNETS_addon.md","kind":"file","bytes":1760,"lines":44,"lang":"markdown"}
 {"path":"Cargo.lock","kind":"file","bytes":17227,"lines":663,"lang":"unknown"}
 {"path":"Cargo.toml","kind":"file","bytes":368,"lines":16,"lang":"toml"}
 {"path":"LICENSE","kind":"file","bytes":4300,"lines":75,"lang":"unknown"}

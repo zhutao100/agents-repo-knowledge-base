@@ -32,3 +32,9 @@ repos:
         entry: cargo clippy --all-targets --all-features -- -D warnings
         pass_filenames: false
         types: [rust]
+      - id: kb-gate
+        name: kb gate (staged)
+        language: system
+        entry: bash -lc 'cargo build -q && PATH="$PWD/target/debug:$PATH" scripts/hook-pre-commit.sh'
+        pass_filenames: false
+        always_run: true

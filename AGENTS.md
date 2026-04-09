@@ -24,3 +24,11 @@
 ## Verification + commits
 
 - Use Conventional Commits (e.g., `docs: ...`, `feat: ...`, `fix: ...`) and avoid leaking local paths (use `$HOME`/`~`).
+
+## kb workflow (agent recipe)
+
+- Follow `AGNETS_addon.md` for the canonical typed `kb` inspection/update loop.
+- Fast local checks:
+  - `kb index check --diff-source worktree`
+  - `kb plan diff --diff-source staged --policy default --format json`
+  - `scripts/kb-gate.sh staged`
