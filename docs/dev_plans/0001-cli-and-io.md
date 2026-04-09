@@ -95,7 +95,7 @@ Global flags:
 Create `src/io/json.rs` (or similar) that:
 
 * serializes structs (not arbitrary maps) to preserve key order,
-* outputs minified JSON without trailing whitespace,
+* outputs minified JSON terminated by a single trailing `\n` (no trailing spaces/tabs),
 * writes to stdout only, and
 * is used by all `--format json` commands.
 

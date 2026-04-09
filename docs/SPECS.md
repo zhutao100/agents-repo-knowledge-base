@@ -57,7 +57,7 @@ All paths surfaced to the user (selectors) or persisted in artifacts MUST be:
 
 To minimize diff churn:
 
-* JSON output MUST be **minified** (no pretty-print whitespace).
+* JSON output MUST be **minified** (no pretty-print whitespace) and terminated by a single trailing `\n`.
 * JSON object keys MUST be emitted in a **stable order**. To make this implementable across languages, the spec requires:
   * Each persisted record is a schema’d object with a fixed set of keys.
   * Keys are serialized in the exact order shown in the schema sections below.

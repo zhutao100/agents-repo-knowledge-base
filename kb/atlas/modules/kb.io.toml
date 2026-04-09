@@ -1,4 +1,5 @@
 id = "kb.io"
 title = "Canonical IO"
 tags = ["io"]
-entrypoints = ["src/io/"]
+entrypoints = ["src/io/json.rs", "src/io/jsonl.rs"]
+edit_points = ["docs/SPECS.md"]
