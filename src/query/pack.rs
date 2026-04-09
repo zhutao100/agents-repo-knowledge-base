@@ -614,6 +614,36 @@ fn build_symbol_snippet(
     build_symbol_snippet_with_reader(&reader, snippet_lines, sym)
 }
 
+const SNIPPET_HARD_LINE_CHARS: usize = 2000;
+const SNIPPET_HEAD_CHARS: usize = 160;
+const SNIPPET_TAIL_CHARS: usize = 80;
+
+fn gate_snippet_line(line: &str) -> String {
+    let trimmed = line.trim_end_matches([' ', '\t']);
+    let len_chars = trimmed.chars().count();
+    if len_chars <= SNIPPET_HARD_LINE_CHARS {
+        return trimmed.to_string();
+    }
+
+    let head: String = trimmed.chars().take(SNIPPET_HEAD_CHARS).collect();
+    let tail_rev: String = trimmed.chars().rev().take(SNIPPET_TAIL_CHARS).collect();
+    let tail: String = tail_rev.chars().rev().collect();
+
+    format!(
+        "[kb truncated chars={} head='{}' tail='{}']",
+        len_chars,
+        escape_snippet_marker_field(&head),
+        escape_snippet_marker_field(&tail)
+    )
+}
+
+fn escape_snippet_marker_field(s: &str) -> String {
+    s.replace('\\', "\\\\")
+        .replace('\'', "\\'")
+        .replace('\t', "\\t")
+        .replace('\r', "\\r")
+}
+
 fn build_symbol_snippet_with_reader(
     reader: &DiffSourceReader,
     snippet_lines: u64,
@@ -650,10 +680,7 @@ fn build_symbol_snippet_with_reader(
     }
 
     let selected = &lines[(start - 1) as usize..end as usize];
-    let cleaned: Vec<String> = selected
-        .iter()
-        .map(|l| l.trim_end_matches([' ', '\t']).to_string())
-        .collect();
+    let cleaned: Vec<String> = selected.iter().map(|l| gate_snippet_line(l)).collect();
 
     Ok(Some(Snippet {
         path: sym.path.clone(),
@@ -798,5 +825,31 @@ fn apply_budget_pack_selectors(out: &mut PackSelectorsOutput) -> Result<(), KbEr
             KbError::invalid_argument("max_bytes is too small to fit required metadata")
                 .with_detail("max_bytes", out.budgets.max_bytes.to_string()),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gate_snippet_line_trims_whitespace() {
+        assert_eq!(gate_snippet_line("hello\t \t"), "hello");
+    }
+
+    #[test]
+    fn gate_snippet_line_keeps_reasonable_lines() {
+        let line = "a".repeat(SNIPPET_HARD_LINE_CHARS);
+        assert_eq!(gate_snippet_line(&line), line);
+    }
+
+    #[test]
+    fn gate_snippet_line_truncates_pathological_lines() {
+        let line = "a".repeat(SNIPPET_HARD_LINE_CHARS + 10);
+        let out = gate_snippet_line(&line);
+        assert!(out.starts_with("[kb truncated "));
+        assert!(out.contains("head='"));
+        assert!(out.contains("tail='"));
+        assert!(out.len() < SNIPPET_HARD_LINE_CHARS);
     }
 }

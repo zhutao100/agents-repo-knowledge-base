@@ -40,7 +40,7 @@
 {"path":"kb/atlas/modules/kb.enforcement.toml","kind":"file","bytes":127,"lines":4,"lang":"toml"}
 {"path":"kb/atlas/modules/kb.index.toml","kind":"file","bytes":89,"lines":4,"lang":"toml"}
 {"path":"kb/atlas/modules/kb.io.toml","kind":"file","bytes":134,"lines":5,"lang":"toml"}
-{"path":"kb/atlas/modules/kb.plan_pack.toml","kind":"file","bytes":130,"lines":4,"lang":"toml"}
+{"path":"kb/atlas/modules/kb.plan_pack.toml","kind":"file","bytes":166,"lines":5,"lang":"toml"}
 {"path":"kb/atlas/modules/kb.repo.toml","kind":"file","bytes":83,"lines":4,"lang":"toml"}
 {"path":"kb/atlas/modules/kb.specs.toml","kind":"file","bytes":180,"lines":5,"lang":"toml"}
 {"path":"kb/config/","kind":"dir"}
@@ -81,7 +81,7 @@
 {"path":"src/query/list.rs","kind":"file","bytes":9270,"lines":322,"lang":"rust"}
 {"path":"src/query/mod.rs","kind":"file","bytes":104,"lines":7,"lang":"rust"}
 {"path":"src/query/module_card.rs","kind":"file","bytes":415,"lines":21,"lang":"rust"}
-{"path":"src/query/pack.rs","kind":"file","bytes":24601,"lines":802,"lang":"rust"}
+{"path":"src/query/pack.rs","kind":"file","bytes":26203,"lines":855,"lang":"rust"}
 {"path":"src/query/plan.rs","kind":"file","bytes":5573,"lines":196,"lang":"rust"}
 {"path":"src/query/read.rs","kind":"file","bytes":1751,"lines":54,"lang":"rust"}
 {"path":"src/query/session.rs","kind":"file","bytes":15244,"lines":481,"lang":"rust"}

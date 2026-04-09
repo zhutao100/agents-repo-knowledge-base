@@ -37,6 +37,7 @@
 {"from_path":"src/query/list.rs","kind":"import","to_external":"std"}
 {"from_path":"src/query/pack.rs","kind":"import","to_external":"crate"}
 {"from_path":"src/query/pack.rs","kind":"import","to_external":"std"}
+{"from_path":"src/query/pack.rs","kind":"import","to_external":"super"}
 {"from_path":"src/query/plan.rs","kind":"import","to_external":"clap"}
 {"from_path":"src/query/plan.rs","kind":"import","to_external":"crate"}
 {"from_path":"src/query/plan.rs","kind":"import","to_external":"std"}
