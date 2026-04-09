@@ -1,0 +1,55 @@
+[[rule]]
+id = "kbtool.cli.main"
+when_path_prefix = "src/main.rs"
+require_module_card = "kb.cli"
+require_session_capsule = true
+
+[[rule]]
+id = "kbtool.cli.cli_rs"
+when_path_prefix = "src/cli.rs"
+require_module_card = "kb.cli"
+require_session_capsule = true
+
+[[rule]]
+id = "kbtool.io"
+when_path_prefix = "src/io/"
+require_module_card = "kb.io"
+
+[[rule]]
+id = "kbtool.repo"
+when_path_prefix = "src/repo/"
+require_module_card = "kb.repo"
+
+[[rule]]
+id = "kbtool.index"
+when_path_prefix = "src/index/"
+require_module_card = "kb.index"
+
+[[rule]]
+id = "kbtool.plan_pack"
+when_path_prefix = "src/query/"
+require_module_card = "kb.plan_pack"
+
+[[rule]]
+id = "kbtool.enforcement.policy"
+when_path_prefix = "src/policy/"
+require_module_card = "kb.enforcement"
+require_session_capsule = true
+
+[[rule]]
+id = "kbtool.enforcement.scripts"
+when_path_prefix = "scripts/"
+require_module_card = "kb.enforcement"
+require_session_capsule = true
+
+[[rule]]
+id = "kbtool.specs.docs"
+when_path_prefix = "docs/SPECS.md"
+require_module_card = "kb.specs"
+require_session_capsule = true
+
+[[rule]]
+id = "kbtool.specs.schemas"
+when_path_prefix = "schemas/"
+require_module_card = "kb.specs"
+require_session_capsule = true

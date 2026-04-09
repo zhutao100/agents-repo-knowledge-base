@@ -1,0 +1,31 @@
+[[tag]]
+id = "cli"
+description = "CLI surface and typed parameters"
+
+[[tag]]
+id = "enforcement"
+description = "Commit-gated freshness and policy checks"
+
+[[tag]]
+id = "index"
+description = "Deterministic generated repo map (kb/gen/*)"
+
+[[tag]]
+id = "io"
+description = "Canonical JSON/JSONL writers and sorting"
+
+[[tag]]
+id = "pack"
+description = "Bounded context pack generation"
+
+[[tag]]
+id = "plan"
+description = "Diff-triggered obligation planning"
+
+[[tag]]
+id = "repo"
+description = "Repo-bounded paths and diff-source semantics"
+
+[[tag]]
+id = "specs"
+description = "Normative schemas and determinism constraints"

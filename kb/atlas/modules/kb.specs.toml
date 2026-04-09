@@ -1,0 +1,4 @@
+id = "kb.specs"
+title = "Specs and schemas"
+tags = ["specs"]
+entrypoints = ["docs/SPECS.md", "docs/DESIGN.md"]

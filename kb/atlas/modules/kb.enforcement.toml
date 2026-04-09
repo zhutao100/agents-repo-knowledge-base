@@ -1,0 +1,4 @@
+id = "kb.enforcement"
+title = "Enforcement and policy checks"
+tags = ["enforcement"]
+entrypoints = ["src/policy/", "scripts/"]

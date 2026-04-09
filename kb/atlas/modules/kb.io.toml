@@ -1,0 +1,4 @@
+id = "kb.io"
+title = "Canonical IO"
+tags = ["io"]
+entrypoints = ["src/io/"]

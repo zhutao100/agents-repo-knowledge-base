@@ -1,0 +1,4 @@
+id = "kb.cli"
+title = "kb CLI"
+tags = ["cli"]
+entrypoints = ["src/main.rs", "src/cli.rs"]

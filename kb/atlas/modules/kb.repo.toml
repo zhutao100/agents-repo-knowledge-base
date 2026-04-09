@@ -1,0 +1,4 @@
+id = "kb.repo"
+title = "Repo plumbing"
+tags = ["repo"]
+entrypoints = ["src/repo/"]
