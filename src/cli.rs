@@ -5,6 +5,14 @@ use crate::index::{index_check, index_regen, IndexScope};
 use crate::io::json::write_json_stdout;
 use crate::policy::lint::lint_all;
 use crate::policy::obligations::obligations_check;
+use crate::query::describe::{
+    describe_module, describe_module_text, describe_path, describe_path_text, describe_symbol,
+    describe_symbol_text, DescribeModuleInclude, DescribePathInclude, DescribeSymbolInclude,
+};
+use crate::query::list::{
+    list_facts, list_facts_text, list_modules, list_modules_text, list_symbols, list_symbols_text,
+    list_tags, list_tags_text,
+};
 use crate::query::pack::{
     pack_diff, pack_diff_text, pack_selectors, pack_selectors_text, SelectorInputs,
 };
@@ -33,6 +41,8 @@ enum Commands {
     Index(IndexCommand),
     Plan(PlanCommand),
     Pack(PackCommand),
+    Describe(DescribeCommand),
+    List(ListCommand),
     Lint(LintCommand),
     Obligations(ObligationsCommand),
 }
@@ -114,6 +124,90 @@ struct PackSelectorsCommand {
 
     #[arg(long)]
     snippet_lines: u64,
+}
+
+#[derive(Debug, Parser)]
+struct DescribeCommand {
+    #[command(subcommand)]
+    command: DescribeCommands,
+}
+
+#[derive(Debug, Subcommand)]
+enum DescribeCommands {
+    Path(DescribePathCommand),
+    Module(DescribeModuleCommand),
+    Symbol(DescribeSymbolCommand),
+}
+
+#[derive(Debug, Parser)]
+struct DescribePathCommand {
+    #[arg(long)]
+    path: String,
+
+    #[arg(long, default_value_t = 0)]
+    depth: u32,
+
+    #[arg(long, value_enum, value_delimiter = ',')]
+    include: Vec<DescribePathInclude>,
+}
+
+#[derive(Debug, Parser)]
+struct DescribeModuleCommand {
+    #[arg(long = "id")]
+    module_id: String,
+
+    #[arg(long, value_enum, value_delimiter = ',')]
+    include: Vec<DescribeModuleInclude>,
+}
+
+#[derive(Debug, Parser)]
+struct DescribeSymbolCommand {
+    #[arg(long = "id")]
+    symbol_id: String,
+
+    #[arg(long, value_enum, value_delimiter = ',')]
+    include: Vec<DescribeSymbolInclude>,
+}
+
+#[derive(Debug, Parser)]
+struct ListCommand {
+    #[command(subcommand)]
+    command: ListCommands,
+}
+
+#[derive(Debug, Subcommand)]
+enum ListCommands {
+    Modules(ListModulesCommand),
+    Facts(ListFactsCommand),
+    Symbols(ListSymbolsCommand),
+    Tags,
+}
+
+#[derive(Debug, Parser)]
+struct ListModulesCommand {
+    #[arg(long)]
+    tag: Option<String>,
+
+    #[arg(long)]
+    owner: Option<String>,
+}
+
+#[derive(Debug, Parser)]
+struct ListFactsCommand {
+    #[arg(long = "type")]
+    fact_type: String,
+
+    #[arg(long)]
+    tag: Option<String>,
+}
+
+#[derive(Debug, Parser)]
+struct ListSymbolsCommand {
+    #[arg(long)]
+    path: String,
+
+    #[arg(long)]
+    kind: Option<String>,
 }
 
 #[derive(Debug, Parser)]
@@ -256,6 +350,81 @@ fn run(cli: Cli) -> Result<(), KbError> {
                     OutputFormat::Json => write_json_stdout(&out)
                         .map_err(|err| KbError::internal(err, "failed to write json"))?,
                     OutputFormat::Text => println!("{}", pack_selectors_text(&out)),
+                }
+            }
+        },
+        Commands::Describe(cmd) => match cmd.command {
+            DescribeCommands::Path(cmd) => {
+                let include = if cmd.include.is_empty() {
+                    vec![DescribePathInclude::Dirs, DescribePathInclude::Files]
+                } else {
+                    cmd.include
+                };
+                let out = describe_path(cmd.path, cmd.depth, include)?;
+                match cli.format {
+                    OutputFormat::Json => write_json_stdout(&out)
+                        .map_err(|err| KbError::internal(err, "failed to write json"))?,
+                    OutputFormat::Text => println!("{}", describe_path_text(&out)),
+                }
+            }
+            DescribeCommands::Module(cmd) => {
+                let include = if cmd.include.is_empty() {
+                    vec![DescribeModuleInclude::Card]
+                } else {
+                    cmd.include
+                };
+                let out = describe_module(cmd.module_id, include)?;
+                match cli.format {
+                    OutputFormat::Json => write_json_stdout(&out)
+                        .map_err(|err| KbError::internal(err, "failed to write json"))?,
+                    OutputFormat::Text => println!("{}", describe_module_text(&out)),
+                }
+            }
+            DescribeCommands::Symbol(cmd) => {
+                let include = if cmd.include.is_empty() {
+                    vec![DescribeSymbolInclude::Def]
+                } else {
+                    cmd.include
+                };
+                let out = describe_symbol(cmd.symbol_id, include)?;
+                match cli.format {
+                    OutputFormat::Json => write_json_stdout(&out)
+                        .map_err(|err| KbError::internal(err, "failed to write json"))?,
+                    OutputFormat::Text => println!("{}", describe_symbol_text(&out)),
+                }
+            }
+        },
+        Commands::List(cmd) => match cmd.command {
+            ListCommands::Modules(cmd) => {
+                let out = list_modules(cmd.tag, cmd.owner)?;
+                match cli.format {
+                    OutputFormat::Json => write_json_stdout(&out)
+                        .map_err(|err| KbError::internal(err, "failed to write json"))?,
+                    OutputFormat::Text => println!("{}", list_modules_text(&out)),
+                }
+            }
+            ListCommands::Facts(cmd) => {
+                let out = list_facts(cmd.fact_type, cmd.tag)?;
+                match cli.format {
+                    OutputFormat::Json => write_json_stdout(&out)
+                        .map_err(|err| KbError::internal(err, "failed to write json"))?,
+                    OutputFormat::Text => println!("{}", list_facts_text(&out)),
+                }
+            }
+            ListCommands::Symbols(cmd) => {
+                let out = list_symbols(cmd.path, cmd.kind)?;
+                match cli.format {
+                    OutputFormat::Json => write_json_stdout(&out)
+                        .map_err(|err| KbError::internal(err, "failed to write json"))?,
+                    OutputFormat::Text => println!("{}", list_symbols_text(&out)),
+                }
+            }
+            ListCommands::Tags => {
+                let out = list_tags()?;
+                match cli.format {
+                    OutputFormat::Json => write_json_stdout(&out)
+                        .map_err(|err| KbError::internal(err, "failed to write json"))?,
+                    OutputFormat::Text => println!("{}", list_tags_text(&out)),
                 }
             }
         },
