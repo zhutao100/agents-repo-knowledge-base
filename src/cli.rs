@@ -17,6 +17,7 @@ use crate::query::pack::{
     pack_diff, pack_diff_text, pack_selectors, pack_selectors_text, SelectorInputs,
 };
 use crate::query::plan::{plan_diff, plan_diff_text, Policy};
+use crate::query::session::{session_check, session_finalize, session_init, VerificationKind};
 use crate::repo::diff_source::{DiffSource, DiffSourceParseError};
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -41,6 +42,7 @@ enum Commands {
     Index(IndexCommand),
     Plan(PlanCommand),
     Pack(PackCommand),
+    Session(SessionCommand),
     Describe(DescribeCommand),
     List(ListCommand),
     Lint(LintCommand),
@@ -124,6 +126,46 @@ struct PackSelectorsCommand {
 
     #[arg(long)]
     snippet_lines: u64,
+}
+
+#[derive(Debug, Parser)]
+struct SessionCommand {
+    #[command(subcommand)]
+    command: SessionCommands,
+}
+
+#[derive(Debug, Subcommand)]
+enum SessionCommands {
+    Init(SessionInitCommand),
+    Finalize(SessionFinalizeCommand),
+    Check(SessionCheckCommand),
+}
+
+#[derive(Debug, Parser)]
+struct SessionInitCommand {
+    #[arg(long = "id")]
+    session_id: String,
+
+    #[arg(long = "tag")]
+    tags: Vec<String>,
+}
+
+#[derive(Debug, Parser)]
+struct SessionFinalizeCommand {
+    #[arg(long = "id")]
+    session_id: String,
+
+    #[arg(long)]
+    diff_source: String,
+
+    #[arg(long, value_enum)]
+    verification: Vec<VerificationKind>,
+}
+
+#[derive(Debug, Parser)]
+struct SessionCheckCommand {
+    #[arg(long = "id")]
+    session_id: String,
 }
 
 #[derive(Debug, Parser)]
@@ -350,6 +392,33 @@ fn run(cli: Cli) -> Result<(), KbError> {
                     OutputFormat::Json => write_json_stdout(&out)
                         .map_err(|err| KbError::internal(err, "failed to write json"))?,
                     OutputFormat::Text => println!("{}", pack_selectors_text(&out)),
+                }
+            }
+        },
+        Commands::Session(cmd) => match cmd.command {
+            SessionCommands::Init(cmd) => {
+                session_init(cmd.session_id, cmd.tags)?;
+                match cli.format {
+                    OutputFormat::Json => write_json_stdout(&OkJson { ok: true })
+                        .map_err(|err| KbError::internal(err, "failed to write json"))?,
+                    OutputFormat::Text => println!("ok"),
+                }
+            }
+            SessionCommands::Finalize(cmd) => {
+                let diff_source = parse_diff_source(&cmd.diff_source)?;
+                session_finalize(cmd.session_id, &diff_source, cmd.verification)?;
+                match cli.format {
+                    OutputFormat::Json => write_json_stdout(&OkJson { ok: true })
+                        .map_err(|err| KbError::internal(err, "failed to write json"))?,
+                    OutputFormat::Text => println!("ok"),
+                }
+            }
+            SessionCommands::Check(cmd) => {
+                session_check(cmd.session_id)?;
+                match cli.format {
+                    OutputFormat::Json => write_json_stdout(&OkJson { ok: true })
+                        .map_err(|err| KbError::internal(err, "failed to write json"))?,
+                    OutputFormat::Text => println!("ok"),
                 }
             }
         },
