@@ -3,6 +3,7 @@
 summary: Below is a **kb tool repository design** that implements the combined recommendation; **generated structural index as the primary navigation substrate**, with **thin human overlays**, **session capsules**, and **commit-gated freshness**. It explicitly targets your two churn classes (relevance + IO) and requires deterministic, in-session updates.
 
 ---
+
 # Design
 
 ## Design intent
@@ -20,9 +21,20 @@ summary: Below is a **kb tool repository design** that implements the combined r
 
 **Docs are UI; knowledge is data.** Markdown remains useful, but the agent’s “cheap navigation memory” is machine-addressable.
 
+### Non-goals (interface hardening)
+
+To keep the agent-facing surface area **clear, deterministic, and non-NLP**, the kb tool intentionally does **not** provide:
+
+* free-text “task/question” inputs (no semantic ranking, no prompt interpretation),
+* fuzzy search over repo content (“grep replacement”),
+* network calls or remote backends (the tool is local and reproducible),
+* selectors that depend on shell glob expansion or user locale (paths are normalized and repo-relative).
+
 ---
 
-## Repository layout
+## Proposed repository layout (implementation target)
+
+The layout below is the **intended end-state** for the kb tool repository. The current repo may start doc-only; the design requirements and contracts remain the same even if file names shift during implementation.
 
 ```text
 kb-tool/
@@ -79,15 +91,17 @@ The kb tool generates and validates **deterministic, diffable** artifacts under 
     │   ├── tree.jsonl
     │   ├── symbols.jsonl
     │   ├── deps.jsonl
-    │   └── xrefs.sqlite         # optional (fast “uses” queries); reproducible
+    │   └── xrefs.jsonl           # optional cross-reference edges (diffable text)
     ├── atlas/                  # thin human overlays (“why / edit points”)
     │   └── modules/
     │       ├── payments.core.toml
-    │       └── auth.session.toml
+    │       └── auth.core.toml
     ├── facts/                  # optional lookup atoms (strictly typed)
     │   └── facts.jsonl
-    └── sessions/               # session capsules (thresholded requirement)
-        └── 2026/04/PR-1234.json
+    ├── sessions/               # session capsules (thresholded requirement)
+    │   └── 2026/04/PR-1234.json
+    └── cache/                  # local-only derived caches (default: gitignored)
+        └── xrefs.sqlite         # optional query acceleration; derived from gen/*
 ```
 
 This is exactly the “second layer under `docs/`” implied by the proposals: small stable atoms, anchored to code, queryable in one call.
@@ -99,13 +113,22 @@ This is exactly the “second layer under `docs/`” implied by the proposals: s
 ### Design constraints (enforced)
 
 * **No natural-language parameters** intended for NLP ranking or prompt-like interpretation (no `--task`, no `--question`).
+* **No fuzzy discovery by free text.** Discovery is via `list` commands, then exact selectors.
+* **Repo-relative addressing.** Path selectors must be repo-relative and must not escape the repo root (`..` is rejected after normalization).
 * All selection is via:
 
   * exact IDs (module/fact/symbol),
-  * paths/globs,
+  * paths and path prefixes (no shell-dependent globs),
   * tags from a validated vocabulary,
-  * enums (include sets, formats, diff sources),
+  * enums (include sets, formats, diff sources, policy modes),
   * numeric budgets (bytes/records/lines).
+
+### Output + error contracts (agent-friendly)
+
+* `--format json` is the **stability surface** (schema’d); `--format text` is a convenience view (may evolve).
+* With `--format json`, successful commands print exactly one JSON object (or JSONL stream where specified) to stdout.
+* With `--format json`, failures print exactly one JSON error object to stdout and exit non-zero (logs go to stderr).
+* All record lists are stable-sorted to minimize churn and diff noise.
 
 ### Operations (minimal, explicit set)
 
@@ -118,6 +141,11 @@ Contract:
 
 * `regen` **writes** `kb/gen/*` deterministically (stable sort, no timestamps in content).
 * `check` exits non-zero if regeneration would change tracked artifacts.
+
+Notes:
+
+* `--diff-source staged` refers to the Git index (what will be committed); `worktree` refers to the working tree.
+* `--diff-source commit:<sha>` compares that commit to its parent by default (overrideable in future via explicit `--base` / `--head` revs).
 
 #### 2) Describe (deterministic lookups)
 
@@ -133,6 +161,7 @@ Notes:
 
 * `kb list modules [--tag <TAG>] [--owner <OWNER>]`
 * `kb list facts --type <FACT_TYPE> [--tag <TAG>]`
+* `kb list symbols --path <PATH> [--kind <SYMBOL_KIND>]`
 * `kb list tags`
 
 All filters are exact-match; `TAG` must exist in `kb/config/tags.toml`.
@@ -153,7 +182,7 @@ This is the commit-gated “in-session update” engine.
 #### 5) Pack (bounded context packs without free text)
 
 * `kb pack diff --diff-source {staged|worktree|commit:<sha>} --radius <DEP_RADIUS:int> --max-bytes <N> --snippet-lines <N> --format {json|text}`
-* `kb pack selectors --paths <P1,P2,...> --modules <M1,M2,...> --symbols <S1,S2,...> --facts <F1,F2,...> --max-bytes <N> --snippet-lines <N> --format {json|text}`
+* `kb pack selectors [--path <PATH>]... [--module <MODULE_ID>]... [--symbol <SYMBOL_ID>]... [--fact <FACT_ID>]... --max-bytes <N> --snippet-lines <N> --format {json|text}`
 
 `pack` is the **single-call retrieval** mechanism that reduces IO churn: it returns a bounded bundle of:
 
@@ -165,8 +194,8 @@ No prompt interpretation is required.
 
 #### 6) Session capsules (thresholded)
 
-* `kb session init --id <SESSION_ID> --tag <TAG>...`
-* `kb session finalize --id <SESSION_ID> --diff-source {staged|worktree|commit:<sha>} --verification {tests|bench|repro|lint}...`
+* `kb session init --id <SESSION_ID> [--tag <TAG>]...`
+* `kb session finalize --id <SESSION_ID> --diff-source {staged|worktree|commit:<sha>} [--verification {tests|bench|repro|lint}]...`
 * `kb session check --id <SESSION_ID>`
 
 These are structured records to capture session-only truth that doc-gardening cannot recover reliably.
