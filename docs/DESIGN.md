@@ -182,8 +182,8 @@ This is the commit-gated “in-session update” engine.
 
 #### 5) Pack (bounded context packs without free text)
 
-* `kb pack diff --diff-source {staged|worktree|commit:<sha>} --radius <DEP_RADIUS:int> --max-bytes <N> --snippet-lines <N> --format {json|text}`
-* `kb pack selectors [--path <PATH>]... [--module <MODULE_ID>]... [--symbol <SYMBOL_ID>]... [--fact <FACT_ID>]... --max-bytes <N> --snippet-lines <N> --format {json|text}`
+* `kb pack diff [--diff-source {staged|worktree|commit:<sha>}] [--radius <DEP_RADIUS:int>] [--max-bytes <N>] [--snippet-lines <N>] --format {json|text}`
+* `kb pack selectors [--path <PATH>]... [--module <MODULE_ID>]... [--symbol <SYMBOL_ID>]... [--fact <FACT_ID>]... [--max-bytes <N>] [--snippet-lines <N>] --format {json|text}`
 
 `pack` is the **single-call retrieval** mechanism that reduces IO churn: it returns a bounded bundle of:
 
@@ -192,6 +192,11 @@ This is the commit-gated “in-session update” engine.
 * optional code excerpts (definitions only, or def+uses if requested)
 
 No prompt interpretation is required.
+
+Selector expansion (v1):
+
+* `pack selectors --module <MODULE_ID>` expands the module’s `entrypoints`/`edit_points` into `--path` selectors and the module’s `related_facts` into `--fact` selectors.
+* `pack selectors --path <DIR/>` includes a bounded subtree under the directory prefix (stable, depth-limited, capped).
 
 #### 6) Session capsules (thresholded)
 

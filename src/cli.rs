@@ -95,16 +95,16 @@ enum PackCommands {
 
 #[derive(Debug, Parser)]
 struct PackDiffCommand {
-    #[arg(long)]
+    #[arg(long, default_value = "worktree")]
     diff_source: String,
 
-    #[arg(long, default_value_t = 0)]
+    #[arg(long, default_value_t = 1)]
     radius: u32,
 
-    #[arg(long)]
+    #[arg(long, default_value_t = 120_000)]
     max_bytes: u64,
 
-    #[arg(long)]
+    #[arg(long, default_value_t = 80)]
     snippet_lines: u64,
 }
 
@@ -122,10 +122,10 @@ struct PackSelectorsCommand {
     #[arg(long = "fact")]
     facts: Vec<String>,
 
-    #[arg(long)]
+    #[arg(long, default_value_t = 120_000)]
     max_bytes: u64,
 
-    #[arg(long)]
+    #[arg(long, default_value_t = 80)]
     snippet_lines: u64,
 }
 

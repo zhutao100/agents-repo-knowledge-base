@@ -6,5 +6,6 @@ entrypoints = [
   "src/query/list.rs",
   "src/query/pack.rs",
   "src/query/plan.rs",
+  "docs/dev_plans/0003-pack-and-plan.md",
 ]
 edit_points = ["src/query/describe.rs", "src/query/list.rs", "src/query/pack.rs"]

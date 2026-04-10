@@ -3,6 +3,7 @@ use std::path::Path;
 
 use crate::error::{ErrorCode, KbError};
 use crate::index::artifacts::{DepEdge, SymbolRecord, TreeRecord};
+use crate::query::module_card::ModuleCardToml;
 use crate::query::plan::{
     plan_diff_at, ChangedPath, PlanDiffOutput, Policy, Required, TriggeredRule,
 };
@@ -86,6 +87,8 @@ pub struct SelectorInputs {
     pub facts: Vec<String>,
 }
 
+const TOP_SYMBOLS_PER_FILE: usize = 5;
+
 pub fn pack_diff(
     diff_source: &DiffSource,
     radius: u32,
@@ -149,6 +152,8 @@ pub fn pack_diff_at(
         .collect();
     symbols.sort_by(|a, b| a.symbol_id.cmp(&b.symbol_id));
     symbols.dedup_by(|a, b| a.symbol_id == b.symbol_id);
+
+    apply_top_symbols(&mut tree, &symbols);
 
     let mut deps: Vec<DepEdge> = deps_records
         .into_iter()
@@ -236,6 +241,11 @@ pub fn pack_selectors_at(
         .map(|s| (s.symbol_id.clone(), s))
         .collect();
 
+    let selector_paths = normalize_unique(selectors.paths.iter().map(String::as_str))?;
+    let selector_modules = normalize_unique(selectors.modules.iter().map(String::as_str))?;
+    let selector_symbols = normalize_unique(selectors.symbols.iter().map(String::as_str))?;
+    let selector_facts = normalize_unique(selectors.facts.iter().map(String::as_str))?;
+
     let mut included_tree = Vec::new();
     let mut included_symbols = Vec::new();
     let mut included_deps = Vec::new();
@@ -243,8 +253,37 @@ pub fn pack_selectors_at(
     let mut included_modules = Vec::new();
     let mut included_facts = Vec::new();
 
-    for path in normalize_unique(selectors.paths.iter().map(String::as_str))? {
-        let (normalized, is_dir) = normalize_selector_path(&path)?;
+    // Expand module selectors into additional typed selectors (entrypoints/edit-points/related-facts).
+    let mut expanded_paths_raw: Vec<String> = selector_paths.clone();
+    let mut expanded_fact_ids_raw: Vec<String> = selector_facts.clone();
+
+    for module_id in &selector_modules {
+        let rel = format!("kb/atlas/modules/{module_id}.toml");
+        if let Some(text) = try_read_text(&reader, &rel)? {
+            included_modules.push(ModuleCard {
+                module_id: module_id.clone(),
+                path: rel,
+                text: normalize_text(&text),
+            });
+
+            let card: ModuleCardToml = toml::from_str(&text).map_err(|err| {
+                KbError::invalid_argument("failed to parse module card")
+                    .with_detail("module_id", module_id.clone())
+                    .with_detail("cause", err.to_string())
+            })?;
+            expanded_paths_raw.extend(card.entrypoints);
+            expanded_paths_raw.extend(card.edit_points);
+            expanded_fact_ids_raw.extend(card.related_facts);
+        }
+    }
+
+    let expanded_paths = normalize_unique(expanded_paths_raw.iter().map(String::as_str))?;
+    let expanded_fact_ids = normalize_unique(expanded_fact_ids_raw.iter().map(String::as_str))?;
+
+    let mut symbol_paths: BTreeSet<String> = BTreeSet::new();
+
+    for path in &expanded_paths {
+        let (normalized, is_dir) = resolve_selector_path(&tree_by_path, path)?;
         let key = if is_dir && !normalized.ends_with('/') {
             format!("{normalized}/")
         } else {
@@ -255,26 +294,23 @@ pub fn pack_selectors_at(
             included_tree.push(record.clone());
         }
 
-        if !is_dir {
-            included_symbols.extend(symbols_records.iter().filter(|s| s.path == key).cloned());
-            included_deps.extend(deps_records.iter().filter(|e| e.from_path == key).cloned());
+        if is_dir {
+            let (tree_more, symbol_more) = expand_dir_tree(&tree_by_path, &key);
+            included_tree.extend(tree_more);
+            for p in symbol_more {
+                symbol_paths.insert(p);
+            }
+        } else {
+            symbol_paths.insert(key.clone());
         }
     }
 
-    for module_id in normalize_unique(selectors.modules.iter().map(String::as_str))? {
-        let rel = format!("kb/atlas/modules/{module_id}.toml");
-        if let Some(text) = try_read_text(&reader, &rel)? {
-            included_modules.push(ModuleCard {
-                module_id,
-                path: rel,
-                text: normalize_text(&text),
-            });
-        }
-    }
-
-    for symbol_id in normalize_unique(selectors.symbols.iter().map(String::as_str))? {
-        if let Some(symbol) = symbols_by_id.get(&symbol_id).cloned() {
+    for symbol_id in &selector_symbols {
+        if let Some(symbol) = symbols_by_id.get(symbol_id).cloned() {
             included_symbols.push(symbol.clone());
+            if let Some(record) = tree_by_path.get(&symbol.path) {
+                included_tree.push(record.clone());
+            }
             if let Some(snippet) =
                 build_symbol_snippet(repo_root, &diff_source, snippet_lines, &symbol)?
             {
@@ -283,7 +319,26 @@ pub fn pack_selectors_at(
         }
     }
 
-    if !selectors.facts.is_empty() {
+    for path in &symbol_paths {
+        included_symbols.extend(symbols_records.iter().filter(|s| s.path == *path).cloned());
+        included_deps.extend(
+            deps_records
+                .iter()
+                .filter(|e| e.from_path == *path)
+                .cloned(),
+        );
+    }
+
+    let mut file_snippets = build_snippets(
+        repo_root,
+        &diff_source,
+        snippet_lines,
+        &symbol_paths,
+        &included_symbols,
+    )?;
+    included_snippets.append(&mut file_snippets);
+
+    if !expanded_fact_ids.is_empty() {
         let facts = match read_jsonl::<serde_json::Value>(&reader, "kb/facts/facts.jsonl") {
             Ok(v) => v,
             Err(err) if err.code == ErrorCode::NotFound => Vec::new(),
@@ -304,10 +359,10 @@ pub fn pack_selectors_at(
             }
         }
 
-        for fact_id_sel in normalize_unique(selectors.facts.iter().map(String::as_str))? {
+        for fact_id_sel in &expanded_fact_ids {
             if let Some(fact) = facts
                 .iter()
-                .find(|v| fact_id_str(v) == fact_id_sel)
+                .find(|v| fact_id_str(v) == fact_id_sel.as_str())
                 .cloned()
             {
                 included_facts.push(fact);
@@ -337,12 +392,14 @@ pub fn pack_selectors_at(
     });
     included_snippets.dedup_by(|a, b| a.path == b.path && a.symbol_id == b.symbol_id);
 
+    apply_top_symbols(&mut included_tree, &symbols_records);
+
     let mut out = PackSelectorsOutput {
         selectors: SelectorsSummary {
-            paths: normalize_unique(selectors.paths.iter().map(String::as_str))?,
-            modules: normalize_unique(selectors.modules.iter().map(String::as_str))?,
-            symbols: normalize_unique(selectors.symbols.iter().map(String::as_str))?,
-            facts: normalize_unique(selectors.facts.iter().map(String::as_str))?,
+            paths: selector_paths,
+            modules: selector_modules,
+            symbols: selector_symbols,
+            facts: selector_facts,
         },
         budgets: Budgets {
             max_bytes,
@@ -591,7 +648,10 @@ fn build_snippets(
         let Some(mut syms) = by_path.get_mut(path.as_str()).map(|v| v.clone()) else {
             continue;
         };
-        syms.sort_by(|a, b| a.symbol_id.cmp(&b.symbol_id));
+        syms.sort_by(|a, b| match a.line.cmp(&b.line) {
+            std::cmp::Ordering::Equal => a.symbol_id.cmp(&b.symbol_id),
+            other => other,
+        });
         let Some(sym) = syms.first() else {
             continue;
         };
@@ -729,6 +789,108 @@ fn fact_id_str(v: &serde_json::Value) -> &str {
 
 fn normalize_text(text: &str) -> String {
     text.replace("\r\n", "\n").replace('\r', "\n")
+}
+
+fn resolve_selector_path(
+    tree_by_path: &BTreeMap<String, TreeRecord>,
+    input: &str,
+) -> Result<(String, bool), KbError> {
+    let (normalized, is_dir_hint) = normalize_selector_path(input)?;
+    if is_dir_hint {
+        return Ok((normalized, true));
+    }
+    let dir_key = format!("{normalized}/");
+    if let Some(r) = tree_by_path.get(&dir_key) {
+        if r.kind == "dir" {
+            return Ok((normalized, true));
+        }
+    }
+    Ok((normalized, false))
+}
+
+const DIR_EXPAND_DEPTH: usize = 2;
+const DIR_EXPAND_MAX_DIRS: usize = 200;
+const DIR_EXPAND_MAX_FILES: usize = 200;
+const DIR_EXPAND_MAX_SYMBOL_FILES: usize = 40;
+
+fn expand_dir_tree(
+    tree_by_path: &BTreeMap<String, TreeRecord>,
+    prefix: &str,
+) -> (Vec<TreeRecord>, Vec<String>) {
+    let base_segments = count_segments(prefix);
+
+    let mut tree = Vec::new();
+    let mut symbol_files = Vec::new();
+    let mut dir_count = 0usize;
+    let mut file_count = 0usize;
+
+    for (p, r) in tree_by_path {
+        if !p.starts_with(prefix) {
+            continue;
+        }
+        let segs = count_segments(p);
+        if segs > base_segments + DIR_EXPAND_DEPTH {
+            continue;
+        }
+        if r.kind == "dir" {
+            if dir_count >= DIR_EXPAND_MAX_DIRS {
+                continue;
+            }
+            dir_count += 1;
+            tree.push(r.clone());
+            continue;
+        }
+        if r.kind == "file" {
+            if file_count >= DIR_EXPAND_MAX_FILES {
+                continue;
+            }
+            file_count += 1;
+            tree.push(r.clone());
+            if symbol_files.len() < DIR_EXPAND_MAX_SYMBOL_FILES {
+                symbol_files.push(p.clone());
+            }
+        }
+    }
+
+    (tree, symbol_files)
+}
+
+fn count_segments(path: &str) -> usize {
+    let p = path.trim_end_matches('/');
+    if p.is_empty() {
+        return 0;
+    }
+    p.split('/').count()
+}
+
+fn apply_top_symbols(tree: &mut [TreeRecord], symbols: &[SymbolRecord]) {
+    let mut by_path: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+    for s in symbols {
+        by_path
+            .entry(s.path.as_str())
+            .or_default()
+            .push(s.symbol_id.as_str());
+    }
+    for ids in by_path.values_mut() {
+        ids.sort();
+        ids.dedup();
+    }
+
+    for r in tree {
+        if r.kind != "file" {
+            continue;
+        }
+        if let Some(ids) = by_path.get(r.path.as_str()) {
+            r.top_symbols = Some(
+                ids.iter()
+                    .take(TOP_SYMBOLS_PER_FILE)
+                    .map(|s| (*s).to_string())
+                    .collect(),
+            );
+        } else {
+            r.top_symbols = Some(Vec::new());
+        }
+    }
 }
 
 fn normalize_selector_path(input: &str) -> Result<(String, bool), KbError> {

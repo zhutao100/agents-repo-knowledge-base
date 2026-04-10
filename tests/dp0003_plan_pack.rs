@@ -102,3 +102,62 @@ title = "Core"
 
     let _ = std::fs::remove_dir_all(repo_root);
 }
+
+#[test]
+fn dp0003_pack_selectors_expands_modules_to_paths_and_facts() {
+    let repo_root = temp_repo_dir();
+    run(std::process::Command::new("git")
+        .arg("init")
+        .arg("-q")
+        .current_dir(&repo_root));
+    run(std::process::Command::new("git")
+        .args(["config", "user.email", "kb-tool@test.invalid"])
+        .current_dir(&repo_root));
+    run(std::process::Command::new("git")
+        .args(["config", "user.name", "kb-tool"])
+        .current_dir(&repo_root));
+
+    write_file(repo_root.join("src/lib.rs").as_path(), "pub fn foo() {}\n");
+    run(std::process::Command::new("git")
+        .args(["add", "-A"])
+        .current_dir(&repo_root));
+    run(std::process::Command::new("git")
+        .args(["commit", "-q", "-m", "init"])
+        .current_dir(&repo_root));
+
+    write_file(
+        repo_root.join("kb/atlas/modules/core.toml").as_path(),
+        r#"
+id = "core"
+title = "Core"
+entrypoints = ["src/"]
+edit_points = ["src/lib.rs"]
+related_facts = ["fact:core:contract:api"]
+"#,
+    );
+    write_file(
+        repo_root.join("kb/facts/facts.jsonl").as_path(),
+        r#"{"fact_id":"fact:core:contract:api","type":"contract","tags":["api"]}"#,
+    );
+
+    let diff_source = DiffSource::Worktree;
+    index_regen_at(&repo_root, &diff_source, IndexScope::All).expect("index regen");
+
+    let selectors = SelectorInputs {
+        paths: vec![],
+        modules: vec!["core".to_string()],
+        symbols: vec![],
+        facts: vec![],
+    };
+    let pack_sel = pack_selectors_at(&repo_root, &selectors, 200_000, 10).expect("pack selectors");
+
+    assert!(pack_sel.tree.iter().any(|r| r.path == "src/lib.rs"));
+    assert!(pack_sel.modules.iter().any(|m| m.module_id == "core"));
+    assert!(pack_sel
+        .facts
+        .iter()
+        .any(|f| f.get("fact_id").and_then(|v| v.as_str()) == Some("fact:core:contract:api")));
+    assert!(pack_sel.snippets.iter().any(|s| s.path == "src/lib.rs"));
+
+    let _ = std::fs::remove_dir_all(repo_root);
+}

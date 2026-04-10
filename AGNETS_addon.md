@@ -24,9 +24,15 @@ This repo is a **kb-enabled target repo** (it has a committed `kb/` root). Prefe
 ## 2) “Single-call context” for code review / debugging
 
 - For a change-set (preferred):
-  - `kb pack diff --diff-source {staged|worktree} --radius 1 --max-bytes <N> --snippet-lines <N> --format json`
+  - `kb pack diff --diff-source {staged|worktree} --format json`
 - For exact selectors:
-  - `kb pack selectors --path <PATH> --module <MODULE_ID> --symbol <SYMBOL_ID> --fact <FACT_ID> --max-bytes <N> --snippet-lines <N> --format json`
+  - `kb pack selectors --module <MODULE_ID> --format json`
+  - `kb pack selectors --path <PATH> --format json`
+
+Notes (v1):
+
+- `pack selectors --module <MODULE_ID>` expands the module card’s `entrypoints`/`edit_points` and includes `related_facts` automatically.
+- `pack selectors --path <DIR/>` includes a bounded subtree under the directory prefix.
 
 Then open only the specific files/line ranges you still need (use `sed-x` slices rather than dumping files).
 

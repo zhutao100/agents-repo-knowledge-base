@@ -17,8 +17,13 @@ This plan defines the planner algorithms, output schemas, and budgeting behavior
 Commands exist and are deterministic:
 
 * `kb plan diff --diff-source {staged|worktree|commit:<sha>} --policy {default|strict} --format {json|text}`
-* `kb pack diff --diff-source {staged|worktree|commit:<sha>} --radius <DEP_RADIUS:int> --max-bytes <N> --snippet-lines <N> --format {json|text}`
-* `kb pack selectors [--path <PATH>]... [--module <MODULE_ID>]... [--symbol <SYMBOL_ID>]... [--fact <FACT_ID>]... --max-bytes <N> --snippet-lines <N> --format {json|text}`
+* `kb pack diff [--diff-source {staged|worktree|commit:<sha>}] [--radius <DEP_RADIUS:int>] [--max-bytes <N>] [--snippet-lines <N>] --format {json|text}`
+* `kb pack selectors [--path <PATH>]... [--module <MODULE_ID>]... [--symbol <SYMBOL_ID>]... [--fact <FACT_ID>]... [--max-bytes <N>] [--snippet-lines <N>] --format {json|text}`
+
+Defaults (v1):
+
+* `pack diff`: `diff_source=worktree`, `radius=1`, `max_bytes=120000`, `snippet_lines=80`
+* `pack selectors`: `max_bytes=120000`, `snippet_lines=80`
 
 All three MUST:
 
@@ -230,7 +235,7 @@ Steps:
    * `dep_edges`: deps.jsonl edges where `from_path` ∈ `S` and (`to_path` ∈ `S` or `to_external` present)
 7. Compute `snippets` (optional):
    * For each included file path, choose up to `K` symbol defs to excerpt:
-     * select symbols in stable order by `symbol_id`
+     * select symbols in stable order by `(line asc, symbol_id asc)`
      * excerpt at most 1 symbol per file in v1 (to reduce churn); future versions may raise this
    * excerpting rule:
      * read file contents via `DiffSourceReader` for the selected `--diff-source`
@@ -324,13 +329,19 @@ Return a bounded context pack from explicit selectors only. No diff computation 
 ### Selector semantics (v1)
 
 * `--path <PATH>` includes:
-  * matching `tree` record for the file (or directory record if path ends with `/`),
-  * all `symbols` records with `path == <PATH>`,
-  * all `deps` edges with `from_path == <PATH>`.
+  * matching `tree` record for the file or directory,
+  * if `<PATH>` is a file: includes `symbols` + `deps` for that file,
+  * if `<PATH>` is a directory: includes a bounded subtree of `tree` records under that prefix
+    * depth: `2` (relative segments)
+    * cap: max `200` dir records and max `200` file records, stable-sorted by path
+    * includes `symbols` + `deps` (and thus `snippets`) for the first `40` file records under the directory (stable by path)
 * `--module <MODULE_ID>` includes:
   * the raw module card at `kb/atlas/modules/<MODULE_ID>.toml` (if present) as a `{module_id,path,text}` record.
+  * additionally, expands `entrypoints` and `edit_points` from the module card as additional `--path` selectors
+  * additionally, expands `related_facts` from the module card as additional `--fact` selectors
 * `--symbol <SYMBOL_ID>` includes:
   * the symbol record,
+  * the matching `tree` record for the symbol’s `path` (if present),
   * a definition snippet for that symbol if file content is available under diff-source `worktree` (selectors pack uses worktree reads in v1).
 * `--fact <FACT_ID>` includes:
   * the matching fact record from `kb/facts/facts.jsonl` (if present).
