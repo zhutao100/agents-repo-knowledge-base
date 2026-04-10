@@ -231,8 +231,8 @@ fn validate_symbol_records(records: &[SymbolRecord]) -> Result<(), KbError> {
 }
 
 fn is_valid_symbol_id(symbol_id: &str) -> bool {
-    const PREFIX: &str = "sym:v2:";
-    const HEX_LEN: usize = 24;
+    const PREFIX: &str = "sym:v3:";
+    const HEX_LEN: usize = 16;
 
     if !symbol_id.starts_with(PREFIX) {
         return false;

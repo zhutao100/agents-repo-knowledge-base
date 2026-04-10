@@ -15,7 +15,7 @@
 {"path":"docs/DESIGN.md","kind":"file","bytes":13634,"lines":308,"lang":"markdown"}
 {"path":"docs/ENFORCEMENT.md","kind":"file","bytes":621,"lines":24,"lang":"markdown"}
 {"path":"docs/MISSION.md","kind":"file","bytes":8162,"lines":107,"lang":"markdown"}
-{"path":"docs/SPECS.md","kind":"file","bytes":10511,"lines":343,"lang":"markdown"}
+{"path":"docs/SPECS.md","kind":"file","bytes":10503,"lines":343,"lang":"markdown"}
 {"path":"docs/context/","kind":"dir"}
 {"path":"docs/context/Harness engineering leveraging Codex in an agent-first world.md","kind":"file","bytes":23024,"lines":226,"lang":"markdown"}
 {"path":"docs/dev_plans/","kind":"dir"}
@@ -37,12 +37,12 @@
 {"path":"kb/atlas/","kind":"dir"}
 {"path":"kb/atlas/modules/","kind":"dir"}
 {"path":"kb/atlas/modules/kb.cli.toml","kind":"file","bytes":156,"lines":5,"lang":"toml"}
-{"path":"kb/atlas/modules/kb.enforcement.toml","kind":"file","bytes":164,"lines":5,"lang":"toml"}
-{"path":"kb/atlas/modules/kb.index.toml","kind":"file","bytes":128,"lines":5,"lang":"toml"}
+{"path":"kb/atlas/modules/kb.enforcement.toml","kind":"file","bytes":202,"lines":5,"lang":"toml"}
+{"path":"kb/atlas/modules/kb.index.toml","kind":"file","bytes":164,"lines":5,"lang":"toml"}
 {"path":"kb/atlas/modules/kb.io.toml","kind":"file","bytes":134,"lines":5,"lang":"toml"}
 {"path":"kb/atlas/modules/kb.plan_pack.toml","kind":"file","bytes":311,"lines":11,"lang":"toml"}
 {"path":"kb/atlas/modules/kb.repo.toml","kind":"file","bytes":83,"lines":4,"lang":"toml"}
-{"path":"kb/atlas/modules/kb.specs.toml","kind":"file","bytes":311,"lines":10,"lang":"toml"}
+{"path":"kb/atlas/modules/kb.specs.toml","kind":"file","bytes":349,"lines":15,"lang":"toml"}
 {"path":"kb/config/","kind":"dir"}
 {"path":"kb/config/obligations.toml","kind":"file","bytes":1188,"lines":55,"lang":"toml"}
 {"path":"kb/config/tags.toml","kind":"file","bytes":618,"lines":31,"lang":"toml"}
@@ -51,6 +51,7 @@
 {"path":"kb/sessions/2026/04/","kind":"dir"}
 {"path":"kb/sessions/2026/04/EOF-JSON-newline.json","kind":"file","bytes":795,"lines":1,"lang":"json"}
 {"path":"kb/sessions/2026/04/symbol-id-v2.json","kind":"file","bytes":1153,"lines":1,"lang":"json"}
+{"path":"kb/sessions/2026/04/symbol-id-v3.json","kind":"file","bytes":1238,"lines":1,"lang":"json"}
 {"path":"kb/sessions/2026/04/ux-facts-describe.json","kind":"file","bytes":1096,"lines":1,"lang":"json"}
 {"path":"kb/sessions/2026/04/ux-pack-selectors.json","kind":"file","bytes":1527,"lines":1,"lang":"json"}
 {"path":"scripts/","kind":"dir"}

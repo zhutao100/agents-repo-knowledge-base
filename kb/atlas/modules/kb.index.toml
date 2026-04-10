@@ -1,5 +1,5 @@
 id = "kb.index"
 title = "Index generation"
 tags = ["index"]
-entrypoints = ["src/index/"]
+entrypoints = ["src/index/", "docs/dev_plans/0002-index-gen.md"]
 edit_points = ["src/index/symbols.rs"]

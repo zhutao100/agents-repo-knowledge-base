@@ -116,7 +116,7 @@ JSON output schema (key order is significant):
   "path": "src/lib.rs",
   "kind": "function",
   "symbols": [
-    { "symbol_id": "sym:v2:...", "name": "parse_thing", "qualified_name": "crate::parse_thing" }
+    { "symbol_id": "sym:v3:...", "name": "parse_thing", "qualified_name": "crate::parse_thing" }
   ]
 }
 ```
@@ -135,7 +135,7 @@ JSON output schema (key order is significant):
 
 ```json
 {
-  "symbol_id": "sym:v2:...",
+  "symbol_id": "sym:v3:...",
   "def": { "path": "src/lib.rs", "line": 42, "end_line": 57, "kind": "function", "name": "parse_thing", "qualified_name": "crate::parse_thing" },
   "signature": "(...) -> ...",
   "uses": [],

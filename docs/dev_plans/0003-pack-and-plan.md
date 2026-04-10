@@ -282,7 +282,7 @@ Rules:
   ```json
   {
     "path": "src/lib.rs",
-    "symbol_id": "sym:v2:...",
+    "symbol_id": "sym:v3:...",
     "start_line": 1,
     "end_line": 10,
     "text": "..."

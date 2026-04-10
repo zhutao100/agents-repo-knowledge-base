@@ -14,7 +14,7 @@ use crate::repo::git::git_output;
 use crate::repo::path::RepoPath;
 use crate::repo::reader::DiffSourceReader;
 
-const SYMBOL_ID_HEX_LEN: usize = 24;
+const SYMBOL_ID_HEX_LEN: usize = 16;
 
 #[derive(Debug, serde::Deserialize)]
 struct CtagsRecord {
@@ -85,7 +85,7 @@ pub fn write_symbols_jsonl(
         let digest = sha256_hex(
             canonical_symbol_key(&lang, &path, &kind, &qualified_name, &disambiguator).as_bytes(),
         );
-        let symbol_id = format!("sym:v2:{}", &digest[..SYMBOL_ID_HEX_LEN]);
+        let symbol_id = format!("sym:v3:{}", &digest[..SYMBOL_ID_HEX_LEN]);
 
         out.push(SymbolRecord {
             symbol_id,

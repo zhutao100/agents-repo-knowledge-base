@@ -164,7 +164,7 @@ File record schema (key order is significant):
   "bytes": 1234,
   "lines": 56,
   "lang": "rust",
-  "top_symbols": ["sym:v2:..."]
+  "top_symbols": ["sym:v3:..."]
 }
 ```
 
@@ -188,7 +188,7 @@ Schema (key order is significant):
 
 ```json
 {
-  "symbol_id": "sym:v2:0123456789abcdef01234567",
+  "symbol_id": "sym:v3:0123456789abcdef",
   "lang": "rust",
   "path": "src/lib.rs",
   "kind": "function",
@@ -246,9 +246,9 @@ Schema (key order is significant):
 
 ```json
 {
-  "from_symbol_id": "sym:v2:...",
+  "from_symbol_id": "sym:v3:...",
   "kind": "ref",
-  "to_symbol_id": "sym:v2:...",
+  "to_symbol_id": "sym:v3:...",
   "path": "src/lib.rs",
   "line": 123
 }
@@ -277,9 +277,9 @@ IDs are typed selectors exposed to users and used as join keys across artifacts.
 
 `SYMBOL_ID` MUST have the format:
 
-* `sym:v2:<HEX_SHA256_96>`
+* `sym:v3:<HEX_SHA256_64>`
 
-Where `<HEX_SHA256_96>` is the first 96 bits (24 lowercase hex chars) of the SHA-256 of the **canonical symbol key**.
+Where `<HEX_SHA256_64>` is the first 64 bits (16 lowercase hex chars) of the SHA-256 of the **canonical symbol key**.
 
 Canonical symbol key (string):
 
