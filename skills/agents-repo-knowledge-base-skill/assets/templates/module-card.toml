@@ -1,0 +1,10 @@
+# Module card template
+# Save as: kb/atlas/modules/<MODULE_ID>.toml
+
+id = "<module.id>"
+title = "<Human title>"
+# owners = ["team-or-handle"]
+# tags = ["tag"]
+# entrypoints = ["path/to/dir/", "path/to/file.ext"]
+# edit_points = ["path/to/file.ext"]
+# related_facts = ["fact:..."]

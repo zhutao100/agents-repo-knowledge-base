@@ -167,6 +167,13 @@ Provide `scripts/hook-pre-commit.sh` that runs the canonical sequence:
 2. `kb lint all`
 3. `kb obligations check --diff-source staged`
 
+To keep commits hassle-free, the runner SHOULD self-heal the purely mechanical case where `kb/gen/*` is stale for the staged set:
+
+1. If `kb index check --diff-source staged` fails:
+   * run `kb index regen --scope all --diff-source staged`
+   * `git add kb/gen`
+2. Then run the canonical sequence above.
+
 The script MUST:
 
 * use `set -euo pipefail`,

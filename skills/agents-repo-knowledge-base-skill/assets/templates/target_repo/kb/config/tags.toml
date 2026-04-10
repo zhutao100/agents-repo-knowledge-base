@@ -1,0 +1,8 @@
+# kb/config/tags.toml
+#
+# Optional tag vocabulary. Keep tags stable and explicitly enumerated.
+#
+# Example:
+# [[tag]]
+# id = "api"
+# description = "Public API surface"

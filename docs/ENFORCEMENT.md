@@ -22,3 +22,5 @@ And thin wrappers for common entrypoints:
 
 - `scripts/hook-pre-commit.sh`
 - `scripts/ci-check.sh`
+
+`scripts/hook-pre-commit.sh` also performs a mechanical self-heal: if `kb/gen/*` is stale for the staged set, it regenerates and auto-stages those artifacts before running the canonical gate.

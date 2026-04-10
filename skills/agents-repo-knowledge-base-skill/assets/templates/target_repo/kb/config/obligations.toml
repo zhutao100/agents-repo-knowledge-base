@@ -1,0 +1,13 @@
+# kb/config/obligations.toml
+#
+# v1 deterministic obligations.
+#
+# The file is required (kb lint all), but it may contain ZERO rules.
+# Add narrow, prefix-based rules as you map the repo into modules and facts.
+#
+# Example:
+# [[rule]]
+# id = "module.api"
+# when_path_prefix = "src/api/"
+# require_module_card = "api.core"
+# require_session_capsule = true

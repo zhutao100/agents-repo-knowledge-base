@@ -20,17 +20,29 @@ fn write_file(path: &Path, content: &str) {
 }
 
 fn temp_repo_dir() -> std::path::PathBuf {
-    let mut dir = std::env::temp_dir();
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("time")
-        .as_nanos();
-    dir.push(format!(
-        "kb-tool-test-sessions-{}-{nanos}",
-        std::process::id()
-    ));
-    std::fs::create_dir_all(&dir).expect("create temp repo dir");
-    dir
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    for _ in 0..1000 {
+        let mut dir = std::env::temp_dir();
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("time")
+            .as_nanos();
+        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+        dir.push(format!(
+            "kb-tool-test-sessions-{}-{nanos}-{n}",
+            std::process::id()
+        ));
+        match std::fs::create_dir(&dir) {
+            Ok(()) => return dir,
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => panic!("create temp repo dir: {e}"),
+        }
+    }
+
+    panic!("failed to allocate a unique temp repo directory after many attempts");
 }
 
 #[test]
