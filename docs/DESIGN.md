@@ -150,8 +150,9 @@ Notes:
 #### 2) Describe (deterministic lookups)
 
 * `kb describe path --path <PATH> --depth <N> --include {dirs,files,top_symbols,entrypoints} --format {json|text}`
-* `kb describe module --id <MODULE_ID> --include {card,entrypoints,edit_points,related_facts} --format {json|text}`
+* `kb describe module --id <MODULE_ID> --include {all,card,entrypoints,edit_points,related_facts} --format {json|text}`
 * `kb describe symbol --id <SYMBOL_ID> --include {def,signature,uses,deps} --format {json|text}`
+* `kb describe fact --id <FACT_ID> --format {json|text}`
 
 Notes:
 
@@ -160,7 +161,7 @@ Notes:
 #### 3) List (no fuzzy search)
 
 * `kb list modules [--tag <TAG>] [--owner <OWNER>]`
-* `kb list facts --type <FACT_TYPE> [--tag <TAG>]`
+* `kb list facts [--type <FACT_TYPE>] [--tag <TAG>]`
 * `kb list symbols --path <PATH> [--kind <SYMBOL_KIND>]`
 * `kb list tags`
 

@@ -1,5 +1,10 @@
 id = "kb.plan_pack"
 title = "Planning and packs"
 tags = ["pack", "plan"]
-entrypoints = ["src/query/plan.rs", "src/query/pack.rs"]
-edit_points = ["src/query/pack.rs"]
+entrypoints = [
+  "src/query/describe.rs",
+  "src/query/list.rs",
+  "src/query/pack.rs",
+  "src/query/plan.rs",
+]
+edit_points = ["src/query/describe.rs", "src/query/list.rs", "src/query/pack.rs"]

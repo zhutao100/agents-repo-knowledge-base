@@ -6,8 +6,9 @@ use crate::io::json::write_json_stdout;
 use crate::policy::lint::lint_all;
 use crate::policy::obligations::obligations_check;
 use crate::query::describe::{
-    describe_module, describe_module_text, describe_path, describe_path_text, describe_symbol,
-    describe_symbol_text, DescribeModuleInclude, DescribePathInclude, DescribeSymbolInclude,
+    describe_fact, describe_fact_text, describe_module, describe_module_text, describe_path,
+    describe_path_text, describe_symbol, describe_symbol_text, DescribeModuleInclude,
+    DescribePathInclude, DescribeSymbolInclude,
 };
 use crate::query::list::{
     list_facts, list_facts_text, list_modules, list_modules_text, list_symbols, list_symbols_text,
@@ -179,6 +180,7 @@ enum DescribeCommands {
     Path(DescribePathCommand),
     Module(DescribeModuleCommand),
     Symbol(DescribeSymbolCommand),
+    Fact(DescribeFactCommand),
 }
 
 #[derive(Debug, Parser)]
@@ -212,6 +214,12 @@ struct DescribeSymbolCommand {
 }
 
 #[derive(Debug, Parser)]
+struct DescribeFactCommand {
+    #[arg(long = "id")]
+    fact_id: String,
+}
+
+#[derive(Debug, Parser)]
 struct ListCommand {
     #[command(subcommand)]
     command: ListCommands,
@@ -237,7 +245,7 @@ struct ListModulesCommand {
 #[derive(Debug, Parser)]
 struct ListFactsCommand {
     #[arg(long = "type")]
-    fact_type: String,
+    fact_type: Option<String>,
 
     #[arg(long)]
     tag: Option<String>,
@@ -438,7 +446,7 @@ fn run(cli: Cli) -> Result<(), KbError> {
             }
             DescribeCommands::Module(cmd) => {
                 let include = if cmd.include.is_empty() {
-                    vec![DescribeModuleInclude::Card]
+                    vec![DescribeModuleInclude::All]
                 } else {
                     cmd.include
                 };
@@ -460,6 +468,14 @@ fn run(cli: Cli) -> Result<(), KbError> {
                     OutputFormat::Json => write_json_stdout(&out)
                         .map_err(|err| KbError::internal(err, "failed to write json"))?,
                     OutputFormat::Text => println!("{}", describe_symbol_text(&out)),
+                }
+            }
+            DescribeCommands::Fact(cmd) => {
+                let out = describe_fact(cmd.fact_id)?;
+                match cli.format {
+                    OutputFormat::Json => write_json_stdout(&out)
+                        .map_err(|err| KbError::internal(err, "failed to write json"))?,
+                    OutputFormat::Text => println!("{}", describe_fact_text(&out)),
                 }
             }
         },

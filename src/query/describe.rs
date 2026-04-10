@@ -3,7 +3,7 @@ use std::path::Path;
 
 use clap::ValueEnum;
 
-use crate::error::KbError;
+use crate::error::{ErrorCode, KbError};
 use crate::index::artifacts::{DepEdge, SymbolRecord, TreeRecord};
 use crate::query::module_card::ModuleCardToml;
 use crate::query::read::{read_jsonl, reader_for, try_read_text};
@@ -38,6 +38,7 @@ pub struct DescribePathOutput {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
 pub enum DescribeModuleInclude {
+    All,
     Card,
     Entrypoints,
     EditPoints,
@@ -67,6 +68,12 @@ pub struct ModuleCardOut {
     pub title: String,
     pub owners: Vec<String>,
     pub tags: Vec<String>,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct DescribeFactOutput {
+    pub fact_id: String,
+    pub fact: serde_json::Value,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
@@ -140,6 +147,10 @@ pub fn describe_symbol(
     include: Vec<DescribeSymbolInclude>,
 ) -> Result<DescribeSymbolOutput, KbError> {
     describe_symbol_at(&discover_repo_root()?, symbol_id, include)
+}
+
+pub fn describe_fact(fact_id: String) -> Result<DescribeFactOutput, KbError> {
+    describe_fact_at(&discover_repo_root()?, fact_id)
 }
 
 pub fn describe_path_at(
@@ -289,10 +300,11 @@ pub fn describe_module_at(
     include: Vec<DescribeModuleInclude>,
 ) -> Result<DescribeModuleOutput, KbError> {
     let include_set: BTreeSet<DescribeModuleInclude> = include.into_iter().collect();
-    let want_card = include_set.contains(&DescribeModuleInclude::Card);
-    let want_entrypoints = include_set.contains(&DescribeModuleInclude::Entrypoints);
-    let want_edit_points = include_set.contains(&DescribeModuleInclude::EditPoints);
-    let want_related_facts = include_set.contains(&DescribeModuleInclude::RelatedFacts);
+    let want_all = include_set.contains(&DescribeModuleInclude::All);
+    let want_card = want_all || include_set.contains(&DescribeModuleInclude::Card);
+    let want_entrypoints = want_all || include_set.contains(&DescribeModuleInclude::Entrypoints);
+    let want_edit_points = want_all || include_set.contains(&DescribeModuleInclude::EditPoints);
+    let want_related_facts = want_all || include_set.contains(&DescribeModuleInclude::RelatedFacts);
 
     let reader = reader_for(repo_root, &DiffSource::Worktree);
     let rel = format!("kb/atlas/modules/{module_id}.toml");
@@ -352,6 +364,37 @@ pub fn describe_module_at(
             None
         },
     })
+}
+
+pub fn describe_fact_at(repo_root: &Path, fact_id: String) -> Result<DescribeFactOutput, KbError> {
+    let reader = reader_for(repo_root, &DiffSource::Worktree);
+    let facts = match read_jsonl::<serde_json::Value>(&reader, "kb/facts/facts.jsonl") {
+        Ok(v) => v,
+        Err(err) if err.code == ErrorCode::NotFound => {
+            return Err(KbError::not_found("fact not found").with_detail("fact_id", &fact_id));
+        }
+        Err(err) => return Err(err),
+    };
+
+    for fact in facts {
+        let Some(obj) = fact.as_object() else {
+            return Err(KbError::invalid_argument(
+                "fact record must be a JSON object",
+            ));
+        };
+        if obj.get("type").and_then(|v| v.as_str()).is_none() {
+            return Err(KbError::invalid_argument("fact record missing type"));
+        }
+        let Some(id) = obj.get("fact_id").and_then(|v| v.as_str()) else {
+            return Err(KbError::invalid_argument("fact record missing fact_id"));
+        };
+
+        if id == fact_id.as_str() {
+            return Ok(DescribeFactOutput { fact_id, fact });
+        }
+    }
+
+    Err(KbError::not_found("fact not found").with_detail("fact_id", &fact_id))
 }
 
 pub fn describe_symbol_at(
@@ -568,4 +611,10 @@ pub fn describe_symbol_text(out: &DescribeSymbolOutput) -> String {
         lines.push(format!("uses: {}", uses.len()));
     }
     lines.join("\n")
+}
+
+pub fn describe_fact_text(out: &DescribeFactOutput) -> String {
+    let text = serde_json::to_string_pretty(&out.fact)
+        .unwrap_or_else(|_| "{\"error\":\"failed to format fact\"}".to_string());
+    format!("fact_id: {}\n{}", out.fact_id, text)
 }

@@ -16,7 +16,10 @@ This repo is a **kb-enabled target repo** (it has a committed `kb/` root). Prefe
   - `kb list modules --format text`
   - `kb list tags --format text`
 - Read a module card:
-  - `kb describe module --id <MODULE_ID> --include card --format json`
+  - `kb describe module --id <MODULE_ID> --format json`
+- Facts (discovery → exact lookup):
+  - `kb list facts --format text`
+  - `kb describe fact --id <FACT_ID> --format json`
 
 ## 2) “Single-call context” for code review / debugging
 

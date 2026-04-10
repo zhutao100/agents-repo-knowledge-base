@@ -26,12 +26,22 @@ pub struct ModuleListEntry {
 
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct ListFactsOutput {
-    pub r#type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub r#type: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tag: Option<String>,
 
-    pub facts: Vec<serde_json::Value>,
+    pub facts: Vec<FactSummary>,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct FactSummary {
+    pub fact_id: String,
+    pub r#type: String,
+
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
 }
 
 #[derive(Clone, Debug, serde::Serialize)]
@@ -76,7 +86,10 @@ pub fn list_modules(
     list_modules_at(&discover_repo_root()?, tag, owner)
 }
 
-pub fn list_facts(fact_type: String, tag: Option<String>) -> Result<ListFactsOutput, KbError> {
+pub fn list_facts(
+    fact_type: Option<String>,
+    tag: Option<String>,
+) -> Result<ListFactsOutput, KbError> {
     list_facts_at(&discover_repo_root()?, fact_type, tag)
 }
 
@@ -99,13 +112,7 @@ pub fn list_modules_text(out: &ListModulesOutput) -> String {
 pub fn list_facts_text(out: &ListFactsOutput) -> String {
     out.facts
         .iter()
-        .map(|f| {
-            f.as_object()
-                .and_then(|o| o.get("fact_id"))
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string()
-        })
+        .map(|f| f.fact_id.clone())
         .collect::<Vec<_>>()
         .join("\n")
 }
@@ -207,7 +214,7 @@ pub fn list_modules_at(
 
 pub fn list_facts_at(
     repo_root: &Path,
-    fact_type: String,
+    fact_type: Option<String>,
     tag: Option<String>,
 ) -> Result<ListFactsOutput, KbError> {
     if let Some(t) = tag.as_deref() {
@@ -231,30 +238,44 @@ pub fn list_facts_at(
         let Some(t) = obj.get("type").and_then(|v| v.as_str()) else {
             return Err(KbError::invalid_argument("fact record missing type"));
         };
-        let Some(_id) = obj.get("fact_id").and_then(|v| v.as_str()) else {
+        let Some(id) = obj.get("fact_id").and_then(|v| v.as_str()) else {
             return Err(KbError::invalid_argument("fact record missing fact_id"));
         };
-        if t != fact_type {
-            continue;
-        }
 
-        if let Some(ref tag_filter) = tag {
-            let tags = obj
-                .get("tags")
-                .and_then(|v| v.as_array())
-                .map(|a| a.iter().filter_map(|x| x.as_str()).collect::<Vec<_>>())
-                .unwrap_or_default();
-            if !tags.iter().any(|x| *x == tag_filter) {
+        if let Some(ref type_filter) = fact_type {
+            if t != type_filter {
                 continue;
             }
         }
 
-        out.push(fact);
+        let mut tags = obj
+            .get("tags")
+            .and_then(|v| v.as_array())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str())
+                    .map(str::to_string)
+                    .collect::<Vec<String>>()
+            })
+            .unwrap_or_default();
+        tags.sort();
+        tags.dedup();
+
+        if let Some(ref tag_filter) = tag {
+            if !tags.iter().any(|x| x == tag_filter) {
+                continue;
+            }
+        }
+
+        out.push(FactSummary {
+            fact_id: id.to_string(),
+            r#type: t.to_string(),
+            tags,
+        });
     }
 
-    #[allow(clippy::unnecessary_sort_by)]
-    out.sort_by(|a, b| fact_id_str(a).cmp(fact_id_str(b)));
-    out.dedup_by(|a, b| fact_id_str(a) == fact_id_str(b));
+    out.sort_by(|a, b| a.fact_id.cmp(&b.fact_id));
+    out.dedup_by(|a, b| a.fact_id == b.fact_id);
 
     Ok(ListFactsOutput {
         r#type: fact_type,
@@ -312,11 +333,4 @@ fn validate_tag(repo_root: &Path, tag: &str) -> Result<(), KbError> {
         return Ok(());
     }
     Err(KbError::invalid_argument("unknown tag").with_detail("tag", tag))
-}
-
-fn fact_id_str(v: &serde_json::Value) -> &str {
-    v.as_object()
-        .and_then(|o| o.get("fact_id"))
-        .and_then(|id| id.as_str())
-        .unwrap_or("")
 }

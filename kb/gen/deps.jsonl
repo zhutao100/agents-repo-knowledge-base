@@ -67,6 +67,8 @@
 {"from_path":"tests/dp0003_plan_pack.rs","kind":"import","to_external":"std"}
 {"from_path":"tests/dp0005_describe_list.rs","kind":"import","to_external":"kb"}
 {"from_path":"tests/dp0005_describe_list.rs","kind":"import","to_external":"std"}
+{"from_path":"tests/dp0005_facts.rs","kind":"import","to_external":"kb"}
+{"from_path":"tests/dp0005_facts.rs","kind":"import","to_external":"std"}
 {"from_path":"tests/dp0006_sessions.rs","kind":"import","to_external":"chrono"}
 {"from_path":"tests/dp0006_sessions.rs","kind":"import","to_external":"kb"}
 {"from_path":"tests/dp0006_sessions.rs","kind":"import","to_external":"std"}

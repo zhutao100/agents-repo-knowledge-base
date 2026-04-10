@@ -16,10 +16,11 @@ These commands are the primary “no-fuzzy-search” navigation surface: agents 
 Commands exist and are deterministic:
 
 * `kb describe path --path <PATH> --depth <N> --include {dirs,files,top_symbols,entrypoints} --format {json|text}`
-* `kb describe module --id <MODULE_ID> --include {card,entrypoints,edit_points,related_facts} --format {json|text}`
+* `kb describe module --id <MODULE_ID> --include {all,card,entrypoints,edit_points,related_facts} --format {json|text}`
 * `kb describe symbol --id <SYMBOL_ID> --include {def,signature,uses,deps} --format {json|text}`
+* `kb describe fact --id <FACT_ID> --format {json|text}`
 * `kb list modules [--tag <TAG>] [--owner <OWNER>] --format {json|text}`
-* `kb list facts --type <FACT_TYPE> [--tag <TAG>] --format {json|text}`
+* `kb list facts [--type <FACT_TYPE>] [--tag <TAG>] --format {json|text}`
 * `kb list symbols --path <PATH> [--kind <SYMBOL_KIND>] --format {json|text}`
 * `kb list tags --format {json|text}`
 
@@ -228,10 +229,18 @@ Optional fields:
 
 `kb list facts` filters by:
 
-* `--type` (required; exact match)
+* `--type` (optional; exact match)
 * `--tag` (optional; exact match)
 
 Stable-sort results by `fact_id`.
+
+`kb list facts` is for discovery and SHOULD return summaries. Use `kb describe fact` for the full record.
+
+### `kb describe fact`
+
+`kb describe fact` returns the full fact record by exact id:
+
+* `kb describe fact --id <FACT_ID>`
 
 ### `kb list tags`
 
