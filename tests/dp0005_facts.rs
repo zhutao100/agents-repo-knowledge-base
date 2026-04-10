@@ -3,6 +3,8 @@ use std::path::Path;
 use kb::query::describe::describe_fact_at;
 use kb::query::list::list_facts_at;
 
+mod support;
+
 fn write_file(path: &Path, content: &str) {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).expect("mkdir");
@@ -10,20 +12,9 @@ fn write_file(path: &Path, content: &str) {
     std::fs::write(path, content).expect("write file");
 }
 
-fn temp_repo_dir() -> std::path::PathBuf {
-    let mut dir = std::env::temp_dir();
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("time")
-        .as_nanos();
-    dir.push(format!("kb-tool-test-facts-{}-{nanos}", std::process::id()));
-    std::fs::create_dir_all(&dir).expect("create temp repo dir");
-    dir
-}
-
 #[test]
 fn dp0005_facts_are_listable_and_describable() {
-    let repo_root = temp_repo_dir();
+    let repo_root = support::TempRepo::new("kb-tool-test-facts-");
 
     write_file(
         repo_root.join("kb/config/tags.toml").as_path(),
@@ -78,6 +69,4 @@ id = "rust"
     );
 
     assert!(describe_fact_at(&repo_root, "fact:nope".to_string()).is_err());
-
-    let _ = std::fs::remove_dir_all(repo_root);
 }

@@ -7,6 +7,8 @@ use kb::query::session::{
 };
 use kb::repo::diff_source::DiffSource;
 
+mod support;
+
 fn run(cmd: &mut std::process::Command) {
     let status = cmd.status().expect("spawn");
     assert!(status.success(), "command failed: {cmd:?}");
@@ -19,35 +21,9 @@ fn write_file(path: &Path, content: &str) {
     std::fs::write(path, content).expect("write file");
 }
 
-fn temp_repo_dir() -> std::path::PathBuf {
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-
-    for _ in 0..1000 {
-        let mut dir = std::env::temp_dir();
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("time")
-            .as_nanos();
-        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
-        dir.push(format!(
-            "kb-tool-test-sessions-{}-{nanos}-{n}",
-            std::process::id()
-        ));
-        match std::fs::create_dir(&dir) {
-            Ok(()) => return dir,
-            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(e) => panic!("create temp repo dir: {e}"),
-        }
-    }
-
-    panic!("failed to allocate a unique temp repo directory after many attempts");
-}
-
 #[test]
 fn dp0006_session_init_creates_expected_schema_and_path() {
-    let repo_root = temp_repo_dir();
+    let repo_root = support::TempRepo::new("kb-tool-test-sessions-");
     run(std::process::Command::new("git")
         .arg("init")
         .arg("-q")
@@ -91,13 +67,11 @@ fn dp0006_session_init_creates_expected_schema_and_path() {
     assert!(capsule.pitfalls.is_empty());
     assert!(capsule.verification.is_empty());
     assert!(capsule.refs.is_empty());
-
-    let _ = std::fs::remove_dir_all(repo_root);
 }
 
 #[test]
 fn dp0006_session_init_fails_when_file_exists() {
-    let repo_root = temp_repo_dir();
+    let repo_root = support::TempRepo::new("kb-tool-test-sessions-");
     run(std::process::Command::new("git")
         .arg("init")
         .arg("-q")
@@ -122,13 +96,11 @@ fn dp0006_session_init_fails_when_file_exists() {
     session_init_at(&repo_root, id.clone(), vec![]).expect("session init");
     let err = session_init_at(&repo_root, id, vec![]).unwrap_err();
     assert_eq!(err.code, ErrorCode::InvalidArgument);
-
-    let _ = std::fs::remove_dir_all(repo_root);
 }
 
 #[test]
 fn dp0006_session_finalize_merges_verification_and_appends_refs() {
-    let repo_root = temp_repo_dir();
+    let repo_root = support::TempRepo::new("kb-tool-test-sessions-");
     run(std::process::Command::new("git")
         .arg("init")
         .arg("-q")
@@ -186,13 +158,11 @@ fn dp0006_session_finalize_merges_verification_and_appends_refs() {
         vec!["bench".to_string(), "lint".to_string(), "tests".to_string()]
     );
     assert_eq!(capsule.refs, vec!["src/lib.rs".to_string()]);
-
-    let _ = std::fs::remove_dir_all(repo_root);
 }
 
 #[test]
 fn dp0006_session_check_rejects_missing_keys_and_absolute_paths() {
-    let repo_root = temp_repo_dir();
+    let repo_root = support::TempRepo::new("kb-tool-test-sessions-");
     run(std::process::Command::new("git")
         .arg("init")
         .arg("-q")
@@ -216,6 +186,4 @@ fn dp0006_session_check_rejects_missing_keys_and_absolute_paths() {
     );
     let err = session_check_at(&repo_root, id).unwrap_err();
     assert_eq!(err.code, ErrorCode::InvalidArgument);
-
-    let _ = std::fs::remove_dir_all(repo_root);
 }

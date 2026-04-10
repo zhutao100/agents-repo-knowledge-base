@@ -7,6 +7,8 @@ use kb::query::describe::{
 use kb::query::list::{list_modules_at, list_symbols_at, list_tags_at};
 use kb::repo::diff_source::DiffSource;
 
+mod support;
+
 fn run(cmd: &mut std::process::Command) {
     let status = cmd.status().expect("spawn");
     assert!(status.success(), "command failed: {cmd:?}");
@@ -19,23 +21,9 @@ fn write_file(path: &Path, content: &str) {
     std::fs::write(path, content).expect("write file");
 }
 
-fn temp_repo_dir() -> std::path::PathBuf {
-    let mut dir = std::env::temp_dir();
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("time")
-        .as_nanos();
-    dir.push(format!(
-        "kb-tool-test-describe-list-{}-{nanos}",
-        std::process::id()
-    ));
-    std::fs::create_dir_all(&dir).expect("create temp repo dir");
-    dir
-}
-
 #[test]
 fn dp0005_list_and_describe_are_deterministic_and_typed() {
-    let repo_root = temp_repo_dir();
+    let repo_root = support::TempRepo::new("kb-tool-test-describe-list-");
     run(std::process::Command::new("git")
         .arg("init")
         .arg("-q")
@@ -117,6 +105,4 @@ description = "ok"
         "id = \"other\"\ntitle = \"x\"\n",
     );
     assert!(list_modules_at(&repo_root, None, None).is_err());
-
-    let _ = std::fs::remove_dir_all(repo_root);
 }

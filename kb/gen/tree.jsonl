@@ -132,8 +132,10 @@
 {"path":"src/repo/reader.rs","kind":"file","bytes":2228,"lines":69,"lang":"rust"}
 {"path":"src/repo/root.rs","kind":"file","bytes":837,"lines":29,"lang":"rust"}
 {"path":"tests/","kind":"dir"}
-{"path":"tests/dp0002_index.rs","kind":"file","bytes":4861,"lines":134,"lang":"rust"}
-{"path":"tests/dp0003_plan_pack.rs","kind":"file","bytes":5378,"lines":163,"lang":"rust"}
-{"path":"tests/dp0005_describe_list.rs","kind":"file","bytes":4168,"lines":122,"lang":"rust"}
-{"path":"tests/dp0005_facts.rs","kind":"file","bytes":2487,"lines":83,"lang":"rust"}
-{"path":"tests/dp0006_sessions.rs","kind":"file","bytes":7598,"lines":221,"lang":"rust"}
+{"path":"tests/dp0002_index.rs","kind":"file","bytes":4470,"lines":121,"lang":"rust"}
+{"path":"tests/dp0003_plan_pack.rs","kind":"file","bytes":4963,"lines":147,"lang":"rust"}
+{"path":"tests/dp0005_describe_list.rs","kind":"file","bytes":3768,"lines":108,"lang":"rust"}
+{"path":"tests/dp0005_facts.rs","kind":"file","bytes":2109,"lines":72,"lang":"rust"}
+{"path":"tests/dp0006_sessions.rs","kind":"file","bytes":6685,"lines":189,"lang":"rust"}
+{"path":"tests/support/","kind":"dir"}
+{"path":"tests/support/mod.rs","kind":"file","bytes":1411,"lines":59,"lang":"rust"}

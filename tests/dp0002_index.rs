@@ -3,6 +3,8 @@ use std::path::Path;
 use kb::index::{index_check_at, index_regen_at, IndexScope};
 use kb::repo::diff_source::DiffSource;
 
+mod support;
+
 fn run(cmd: &mut std::process::Command) {
     let status = cmd.status().expect("spawn");
     assert!(status.success(), "command failed: {cmd:?}");
@@ -15,20 +17,9 @@ fn write_file(path: &Path, content: &str) {
     std::fs::write(path, content).expect("write file");
 }
 
-fn temp_repo_dir() -> std::path::PathBuf {
-    let mut dir = std::env::temp_dir();
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("time")
-        .as_nanos();
-    dir.push(format!("kb-tool-test-{}-{nanos}", std::process::id()));
-    std::fs::create_dir_all(&dir).expect("create temp repo dir");
-    dir
-}
-
 #[test]
 fn dp0002_index_regen_is_deterministic_and_check_works() {
-    let repo_root = temp_repo_dir();
+    let repo_root = support::TempRepo::new("kb-tool-test-index-");
     run(std::process::Command::new("git")
         .arg("init")
         .arg("-q")
@@ -94,8 +85,6 @@ fn dp0002_index_regen_is_deterministic_and_check_works() {
     // Regen fixes it.
     index_regen_at(&repo_root, &diff_source, IndexScope::All).expect("regen fixes");
     index_check_at(&repo_root, &diff_source).expect("check passes again");
-
-    let _ = std::fs::remove_dir_all(repo_root);
 }
 
 #[cfg(unix)]
@@ -103,7 +92,7 @@ fn dp0002_index_regen_is_deterministic_and_check_works() {
 fn dp0002_index_regen_staged_matches_worktree_for_exec_shebang_files() {
     use std::os::unix::fs::PermissionsExt;
 
-    let repo_root = temp_repo_dir();
+    let repo_root = support::TempRepo::new("kb-tool-test-index-");
     run(std::process::Command::new("git")
         .arg("init")
         .arg("-q")
@@ -129,6 +118,4 @@ fn dp0002_index_regen_staged_matches_worktree_for_exec_shebang_files() {
     let symbols_staged = std::fs::read(repo_root.join("kb/gen/symbols.jsonl")).unwrap();
 
     assert_eq!(symbols_worktree, symbols_staged);
-
-    let _ = std::fs::remove_dir_all(repo_root);
 }

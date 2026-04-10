@@ -5,6 +5,8 @@ use kb::query::pack::{pack_diff_at, pack_selectors_at, SelectorInputs};
 use kb::query::plan::{plan_diff_at, Policy};
 use kb::repo::diff_source::DiffSource;
 
+mod support;
+
 fn run(cmd: &mut std::process::Command) {
     let status = cmd.status().expect("spawn");
     assert!(status.success(), "command failed: {cmd:?}");
@@ -17,23 +19,9 @@ fn write_file(path: &Path, content: &str) {
     std::fs::write(path, content).expect("write file");
 }
 
-fn temp_repo_dir() -> std::path::PathBuf {
-    let mut dir = std::env::temp_dir();
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("time")
-        .as_nanos();
-    dir.push(format!(
-        "kb-tool-test-plan-pack-{}-{nanos}",
-        std::process::id()
-    ));
-    std::fs::create_dir_all(&dir).expect("create temp repo dir");
-    dir
-}
-
 #[test]
 fn dp0003_plan_diff_and_pack_diff_work_end_to_end() {
-    let repo_root = temp_repo_dir();
+    let repo_root = support::TempRepo::new("kb-tool-test-plan-pack-");
     run(std::process::Command::new("git")
         .arg("init")
         .arg("-q")
@@ -99,13 +87,11 @@ title = "Core"
     let pack_sel = pack_selectors_at(&repo_root, &selectors, 200_000, 10).expect("pack selectors");
     assert!(pack_sel.tree.iter().any(|r| r.path == "src/lib.rs"));
     assert!(pack_sel.modules.iter().any(|m| m.module_id == "core"));
-
-    let _ = std::fs::remove_dir_all(repo_root);
 }
 
 #[test]
 fn dp0003_pack_selectors_expands_modules_to_paths_and_facts() {
-    let repo_root = temp_repo_dir();
+    let repo_root = support::TempRepo::new("kb-tool-test-plan-pack-");
     run(std::process::Command::new("git")
         .arg("init")
         .arg("-q")
@@ -158,6 +144,4 @@ related_facts = ["fact:core:contract:api"]
         .iter()
         .any(|f| f.get("fact_id").and_then(|v| v.as_str()) == Some("fact:core:contract:api")));
     assert!(pack_sel.snippets.iter().any(|s| s.path == "src/lib.rs"));
-
-    let _ = std::fs::remove_dir_all(repo_root);
 }
