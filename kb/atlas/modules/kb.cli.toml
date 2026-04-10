@@ -1,5 +1,5 @@
 id = "kb.cli"
 title = "kb CLI"
 tags = ["cli"]
-entrypoints = ["src/main.rs", "src/cli.rs", "docs/dev_plans/0001-cli-and-io.md"]
-edit_points = ["src/cli.rs"]
+entrypoints = ["src/main.rs", "src/cli.rs", "src/overlay.rs", "src/config/tags.rs", "docs/dev_plans/0001-cli-and-io.md"]
+edit_points = ["src/cli.rs", "src/overlay.rs"]

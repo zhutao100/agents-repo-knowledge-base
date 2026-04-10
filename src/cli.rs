@@ -3,6 +3,9 @@ use clap::{Parser, Subcommand, ValueEnum};
 use crate::error::KbError;
 use crate::index::{index_check, index_regen, IndexScope};
 use crate::io::json::write_json_stdout;
+use crate::overlay::{
+    facts_upsert, module_init, module_upsert, obligations_upsert_rule, tags_upsert,
+};
 use crate::policy::lint::lint_all;
 use crate::policy::obligations::obligations_check;
 use crate::query::describe::{
@@ -46,6 +49,9 @@ enum Commands {
     Session(SessionCommand),
     Describe(DescribeCommand),
     List(ListCommand),
+    Tags(TagsCommand),
+    Module(ModuleCommand),
+    Fact(FactCommand),
     Lint(LintCommand),
     Obligations(ObligationsCommand),
 }
@@ -261,6 +267,91 @@ struct ListSymbolsCommand {
 }
 
 #[derive(Debug, Parser)]
+struct TagsCommand {
+    #[command(subcommand)]
+    command: TagsCommands,
+}
+
+#[derive(Debug, Subcommand)]
+enum TagsCommands {
+    Upsert(TagsUpsertCommand),
+}
+
+#[derive(Debug, Parser)]
+struct TagsUpsertCommand {
+    #[arg(long = "id")]
+    tag_id: String,
+
+    #[arg(long)]
+    description: Option<String>,
+}
+
+#[derive(Debug, Parser)]
+struct ModuleCommand {
+    #[command(subcommand)]
+    command: ModuleCommands,
+}
+
+#[derive(Debug, Subcommand)]
+enum ModuleCommands {
+    Init(ModuleWriteCommand),
+    Upsert(ModuleWriteCommand),
+}
+
+#[derive(Debug, Parser)]
+struct ModuleWriteCommand {
+    #[arg(long = "id")]
+    module_id: String,
+
+    #[arg(long)]
+    title: Option<String>,
+
+    #[arg(long = "owner")]
+    owners: Vec<String>,
+
+    #[arg(long = "tag")]
+    tags: Vec<String>,
+
+    #[arg(long = "entrypoint")]
+    entrypoints: Vec<String>,
+
+    #[arg(long = "edit-point")]
+    edit_points: Vec<String>,
+
+    #[arg(long = "related-fact")]
+    related_facts: Vec<String>,
+}
+
+#[derive(Debug, Parser)]
+struct FactCommand {
+    #[command(subcommand)]
+    command: FactCommands,
+}
+
+#[derive(Debug, Subcommand)]
+enum FactCommands {
+    Upsert(FactUpsertCommand),
+}
+
+#[derive(Debug, Parser)]
+struct FactUpsertCommand {
+    #[arg(long = "id")]
+    fact_id: String,
+
+    #[arg(long = "type")]
+    fact_type: String,
+
+    #[arg(long = "tag")]
+    tags: Vec<String>,
+
+    #[arg(long = "path")]
+    paths: Vec<String>,
+
+    #[arg(long = "data-json")]
+    data_json: Option<String>,
+}
+
+#[derive(Debug, Parser)]
 struct LintCommand {
     #[command(subcommand)]
     command: LintCommands,
@@ -280,12 +371,31 @@ struct ObligationsCommand {
 #[derive(Debug, Subcommand)]
 enum ObligationsCommands {
     Check(ObligationsCheckCommand),
+    UpsertRule(ObligationsUpsertRuleCommand),
 }
 
 #[derive(Debug, Parser)]
 struct ObligationsCheckCommand {
     #[arg(long)]
     diff_source: String,
+}
+
+#[derive(Debug, Parser)]
+struct ObligationsUpsertRuleCommand {
+    #[arg(long = "id")]
+    rule_id: String,
+
+    #[arg(long)]
+    when_path_prefix: String,
+
+    #[arg(long)]
+    require_module_card: Option<String>,
+
+    #[arg(long = "require-fact-type")]
+    require_fact_types: Vec<String>,
+
+    #[arg(long)]
+    require_session_capsule: Option<bool>,
 }
 
 #[derive(Debug, Parser)]
@@ -513,6 +623,66 @@ fn run(cli: Cli) -> Result<(), KbError> {
                 }
             }
         },
+        Commands::Tags(cmd) => match cmd.command {
+            TagsCommands::Upsert(cmd) => {
+                tags_upsert(cmd.tag_id, cmd.description)?;
+                match cli.format {
+                    OutputFormat::Json => write_json_stdout(&OkJson { ok: true })
+                        .map_err(|err| KbError::internal(err, "failed to write json"))?,
+                    OutputFormat::Text => println!("ok"),
+                }
+            }
+        },
+        Commands::Module(cmd) => match cmd.command {
+            ModuleCommands::Init(cmd) => {
+                module_init(
+                    cmd.module_id,
+                    cmd.title,
+                    cmd.owners,
+                    cmd.tags,
+                    cmd.entrypoints,
+                    cmd.edit_points,
+                    cmd.related_facts,
+                )?;
+                match cli.format {
+                    OutputFormat::Json => write_json_stdout(&OkJson { ok: true })
+                        .map_err(|err| KbError::internal(err, "failed to write json"))?,
+                    OutputFormat::Text => println!("ok"),
+                }
+            }
+            ModuleCommands::Upsert(cmd) => {
+                module_upsert(
+                    cmd.module_id,
+                    cmd.title,
+                    cmd.owners,
+                    cmd.tags,
+                    cmd.entrypoints,
+                    cmd.edit_points,
+                    cmd.related_facts,
+                )?;
+                match cli.format {
+                    OutputFormat::Json => write_json_stdout(&OkJson { ok: true })
+                        .map_err(|err| KbError::internal(err, "failed to write json"))?,
+                    OutputFormat::Text => println!("ok"),
+                }
+            }
+        },
+        Commands::Fact(cmd) => match cmd.command {
+            FactCommands::Upsert(cmd) => {
+                facts_upsert(
+                    cmd.fact_id,
+                    cmd.fact_type,
+                    cmd.tags,
+                    cmd.paths,
+                    cmd.data_json,
+                )?;
+                match cli.format {
+                    OutputFormat::Json => write_json_stdout(&OkJson { ok: true })
+                        .map_err(|err| KbError::internal(err, "failed to write json"))?,
+                    OutputFormat::Text => println!("ok"),
+                }
+            }
+        },
         Commands::Lint(cmd) => match cmd.command {
             LintCommands::All => {
                 lint_all()?;
@@ -527,6 +697,20 @@ fn run(cli: Cli) -> Result<(), KbError> {
             ObligationsCommands::Check(cmd) => {
                 let diff_source = parse_diff_source(&cmd.diff_source)?;
                 obligations_check(&diff_source)?;
+                match cli.format {
+                    OutputFormat::Json => write_json_stdout(&OkJson { ok: true })
+                        .map_err(|err| KbError::internal(err, "failed to write json"))?,
+                    OutputFormat::Text => println!("ok"),
+                }
+            }
+            ObligationsCommands::UpsertRule(cmd) => {
+                obligations_upsert_rule(
+                    cmd.rule_id,
+                    cmd.when_path_prefix,
+                    cmd.require_module_card,
+                    cmd.require_fact_types,
+                    cmd.require_session_capsule,
+                )?;
                 match cli.format {
                     OutputFormat::Json => write_json_stdout(&OkJson { ok: true })
                         .map_err(|err| KbError::internal(err, "failed to write json"))?,

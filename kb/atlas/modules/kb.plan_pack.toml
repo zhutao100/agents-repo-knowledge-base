@@ -7,5 +7,6 @@ entrypoints = [
   "src/query/pack.rs",
   "src/query/plan.rs",
   "docs/dev_plans/0003-pack-and-plan.md",
+  "docs/dev_plans/0005-describe-and-list.md",
 ]
-edit_points = ["src/query/describe.rs", "src/query/list.rs", "src/query/pack.rs"]
+edit_points = ["src/query/describe.rs", "src/query/list.rs", "src/query/pack.rs", "src/query/plan.rs"]

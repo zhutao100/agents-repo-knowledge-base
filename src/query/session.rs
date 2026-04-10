@@ -6,9 +6,9 @@ use std::path::{Path, PathBuf};
 use chrono::Datelike;
 use clap::ValueEnum;
 
+use crate::config::tags::validate_tags_at;
 use crate::error::KbError;
 use crate::io::json::write_json_to_writer;
-use crate::query::read::{reader_for, try_read_text};
 use crate::repo::diff::list_changed_paths;
 use crate::repo::diff_source::DiffSource;
 use crate::repo::root::discover_repo_root;
@@ -34,20 +34,6 @@ impl VerificationKind {
     }
 }
 
-#[derive(Clone, Debug, serde::Deserialize)]
-struct TagsConfig {
-    #[serde(default)]
-    tag: Vec<TagEntry>,
-}
-
-#[derive(Clone, Debug, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct TagEntry {
-    id: String,
-    #[serde(default)]
-    description: Option<String>,
-}
-
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SessionCapsule {
@@ -71,7 +57,7 @@ pub fn session_init_at(
     tags: Vec<String>,
 ) -> Result<PathBuf, KbError> {
     validate_session_id(&session_id)?;
-    validate_tags(repo_root, &tags)?;
+    validate_tags_at(repo_root, &tags)?;
 
     let mut tags = tags;
     tags.sort();
@@ -176,7 +162,7 @@ pub fn session_finalize_at(
     capsule.refs = derived_refs.into_iter().take(SESSION_REFS_MAX).collect();
 
     normalize_set(&mut capsule.tags);
-    validate_tags(repo_root, &capsule.tags)?;
+    validate_tags_at(repo_root, &capsule.tags)?;
     validate_capsule(&capsule, Some(&session_id))?;
 
     let mut file = OpenOptions::new()
@@ -209,7 +195,7 @@ pub fn session_check_at(repo_root: &Path, session_id: String) -> Result<PathBuf,
             .with_detail("cause", err.to_string())
     })?;
     validate_capsule(&capsule, Some(&session_id))?;
-    validate_tags(repo_root, &capsule.tags)?;
+    validate_tags_at(repo_root, &capsule.tags)?;
     Ok(abs_path)
 }
 
@@ -331,30 +317,6 @@ fn looks_like_windows_abs_path(value: &str) -> bool {
     };
 
     first.is_ascii_alphabetic() && second == ':' && (third == '\\' || third == '/')
-}
-
-fn validate_tags(repo_root: &Path, tags: &[String]) -> Result<(), KbError> {
-    let reader = reader_for(repo_root, &DiffSource::Worktree);
-    let Some(text) = try_read_text(&reader, "kb/config/tags.toml")? else {
-        return Ok(());
-    };
-
-    let cfg: TagsConfig = toml::from_str(&text).map_err(|err| {
-        KbError::invalid_argument("failed to parse tags.toml").with_detail("cause", err.to_string())
-    })?;
-
-    let mut known = BTreeSet::new();
-    for entry in cfg.tag {
-        let _ = entry.description;
-        known.insert(entry.id);
-    }
-    for tag in tags {
-        if known.contains(tag) {
-            continue;
-        }
-        return Err(KbError::invalid_argument("unknown tag").with_detail("tag", tag));
-    }
-    Ok(())
 }
 
 fn session_init_rel_path(session_id: &str) -> Result<String, KbError> {

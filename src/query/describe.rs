@@ -556,7 +556,26 @@ pub fn describe_path_text(out: &DescribePathOutput) -> String {
     if let Some(files) = out.files.as_deref() {
         lines.push("files:".to_string());
         for f in files {
-            lines.push(format!("- {}", f.path));
+            let mut row = format!("- {}", f.path);
+            if f.kind == "file" {
+                if let Some(bytes) = f.bytes {
+                    row.push_str(&format!(" bytes={bytes}"));
+                }
+                if let Some(loc) = f.lines {
+                    row.push_str(&format!(" lines={loc}"));
+                }
+                if let Some(lang) = f.lang.as_deref() {
+                    row.push_str(&format!(" lang={lang}"));
+                }
+                if let Some(top) = f.top_symbols.as_deref() {
+                    if !top.is_empty() {
+                        row.push_str(&format!(" top_symbols={}", top.join(", ")));
+                    } else {
+                        row.push_str(" top_symbols=");
+                    }
+                }
+            }
+            lines.push(row);
         }
     }
     if let Some(eps) = out.entrypoints.as_deref() {
@@ -573,6 +592,12 @@ pub fn describe_module_text(out: &DescribeModuleOutput) -> String {
     lines.push(format!("module_id: {}", out.module_id));
     if let Some(card) = out.card.as_ref() {
         lines.push(format!("title: {}", card.title));
+        if !card.owners.is_empty() {
+            lines.push(format!("owners: {}", card.owners.join(", ")));
+        }
+        if !card.tags.is_empty() {
+            lines.push(format!("tags: {}", card.tags.join(", ")));
+        }
     }
     if let Some(eps) = out.entrypoints.as_deref() {
         lines.push("entrypoints:".to_string());

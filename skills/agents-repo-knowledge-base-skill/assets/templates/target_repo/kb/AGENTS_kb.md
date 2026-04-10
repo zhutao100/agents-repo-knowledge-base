@@ -38,8 +38,11 @@ Then open only the specific files/line ranges you still need (prefer bounded `se
 
 ## 3) In-session updates (what to edit when gates fail)
 
-- Module cards: `kb/atlas/modules/<MODULE_ID>.toml`
-- Facts: `kb/facts/facts.jsonl`
+- Prefer deterministic KB writers (avoid manual edits when possible):
+  - Tags: `kb tags upsert --id <TAG> [--description <TEXT>]`
+  - Module cards: `kb module upsert --id <MODULE_ID> ...`
+  - Facts: `kb fact upsert --id <FACT_ID> --type <FACT_TYPE> ...`
+  - Obligations: `kb obligations upsert-rule --id <RULE_ID> ...`
 - Sessions:
   - `kb session init --id <SESSION_ID> [--tag <TAG>]...`
   - Edit the capsule to record decisions/pitfalls/verification (no absolute paths).

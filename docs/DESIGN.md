@@ -206,7 +206,23 @@ Selector expansion (v1):
 
 These are structured records to capture session-only truth that doc-gardening cannot recover reliably.
 
-#### 7) Lint / policy checks
+#### 7) Overlay writes (deterministic; optional)
+
+These commands write the KB overlay files deterministically (stable ordering, no timestamps). They exist to support repo backfills and in-session updates without requiring manual edits to `kb/` files.
+
+* Tag vocabulary:
+  * `kb tags upsert --id <TAG> [--description <TEXT>]`
+* Module cards:
+  * `kb module init --id <MODULE_ID> [--title <TITLE>] [--owner <OWNER>]... [--tag <TAG>]... [--entrypoint <PATH>]... [--edit-point <PATH>]... [--related-fact <FACT_ID>]...`
+  * `kb module upsert ...` (same flags; overwrites deterministically)
+* Facts:
+  * `kb fact upsert --id <FACT_ID> --type <FACT_TYPE> [--tag <TAG>]... [--path <PATH>]... [--data-json <JSON>]`
+* Obligations:
+  * `kb obligations upsert-rule --id <RULE_ID> --when-path-prefix <PREFIX> [--require-module-card <MODULE_ID>] [--require-fact-type <FACT_TYPE>]... [--require-session-capsule true]`
+
+All selectors are typed (exact IDs, repo-relative paths/prefixes, validated tags, enums, numeric budgets).
+
+#### 8) Lint / policy checks
 
 * `kb lint all`
 * `kb obligations check --diff-source {staged|worktree|commit:<sha>}`

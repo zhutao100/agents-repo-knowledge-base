@@ -1,9 +1,10 @@
 use std::path::Path;
 
+use crate::config::tags::{load_tags_config_at, validate_tag_at};
 use crate::error::{ErrorCode, KbError};
 use crate::index::artifacts::SymbolRecord;
 use crate::query::module_card::ModuleCardToml;
-use crate::query::read::{read_jsonl, reader_for, try_read_text};
+use crate::query::read::{read_jsonl, reader_for};
 use crate::repo::diff_source::DiffSource;
 use crate::repo::path::RepoPath;
 use crate::repo::root::discover_repo_root;
@@ -61,20 +62,6 @@ pub struct SymbolListEntry {
     pub qualified_name: String,
 }
 
-#[derive(Debug, serde::Deserialize)]
-struct TagsConfig {
-    #[serde(default)]
-    tag: Vec<TagEntry>,
-}
-
-#[derive(Debug, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct TagEntry {
-    id: String,
-    #[serde(default)]
-    description: Option<String>,
-}
-
 pub fn list_tags() -> Result<ListTagsOutput, KbError> {
     list_tags_at(&discover_repo_root()?)
 }
@@ -126,15 +113,9 @@ pub fn list_symbols_text(out: &ListSymbolsOutput) -> String {
 }
 
 pub fn list_tags_at(repo_root: &Path) -> Result<ListTagsOutput, KbError> {
-    let reader = reader_for(repo_root, &DiffSource::Worktree);
-    let text = match try_read_text(&reader, "kb/config/tags.toml")? {
-        Some(t) => t,
-        None => return Ok(ListTagsOutput { tags: Vec::new() }),
+    let Some(cfg) = load_tags_config_at(repo_root)? else {
+        return Ok(ListTagsOutput { tags: Vec::new() });
     };
-
-    let cfg: TagsConfig = toml::from_str(&text).map_err(|err| {
-        KbError::invalid_argument("failed to parse tags.toml").with_detail("cause", err.to_string())
-    })?;
     let mut tags: Vec<String> = cfg
         .tag
         .into_iter()
@@ -154,7 +135,7 @@ pub fn list_modules_at(
     owner: Option<String>,
 ) -> Result<ListModulesOutput, KbError> {
     if let Some(t) = tag.as_deref() {
-        validate_tag(repo_root, t)?;
+        validate_tag_at(repo_root, t)?;
     }
 
     let mut out = Vec::new();
@@ -218,7 +199,7 @@ pub fn list_facts_at(
     tag: Option<String>,
 ) -> Result<ListFactsOutput, KbError> {
     if let Some(t) = tag.as_deref() {
-        validate_tag(repo_root, t)?;
+        validate_tag_at(repo_root, t)?;
     }
 
     let reader = reader_for(repo_root, &DiffSource::Worktree);
@@ -318,19 +299,4 @@ pub fn list_symbols_at(
         kind,
         symbols: out,
     })
-}
-
-fn validate_tag(repo_root: &Path, tag: &str) -> Result<(), KbError> {
-    let reader = reader_for(repo_root, &DiffSource::Worktree);
-    let Some(text) = try_read_text(&reader, "kb/config/tags.toml")? else {
-        return Ok(());
-    };
-
-    let cfg: TagsConfig = toml::from_str(&text).map_err(|err| {
-        KbError::invalid_argument("failed to parse tags.toml").with_detail("cause", err.to_string())
-    })?;
-    if cfg.tag.iter().any(|t| t.id == tag) {
-        return Ok(());
-    }
-    Err(KbError::invalid_argument("unknown tag").with_detail("tag", tag))
 }

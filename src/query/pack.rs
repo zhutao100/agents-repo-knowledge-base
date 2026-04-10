@@ -432,6 +432,20 @@ pub fn pack_diff_text(out: &PackDiffOutput) -> String {
         lines.push(format!("- {} ({})", c.path, c.change_kind));
     }
 
+    if !out.plan.triggered_rules.is_empty() {
+        lines.push("triggered_rules:".to_string());
+        for r in &out.plan.triggered_rules {
+            lines.push(format!("- {} (prefix={})", r.id, r.when_path_prefix));
+        }
+    }
+
+    if !out.plan.affected_modules.is_empty() {
+        lines.push("affected_modules:".to_string());
+        for m in &out.plan.affected_modules {
+            lines.push(format!("- {m}"));
+        }
+    }
+
     lines.push("required:".to_string());
     lines.push(format!(
         "- module_cards: {}",
@@ -446,9 +460,49 @@ pub fn pack_diff_text(out: &PackDiffOutput) -> String {
         out.plan.required.session_capsule
     ));
 
+    if !out.modules.is_empty() {
+        lines.push("modules:".to_string());
+        for m in &out.modules {
+            lines.push(format!("--- {} ({})", m.module_id, m.path));
+            lines.push("```toml".to_string());
+            lines.push(m.text.clone());
+            lines.push("```".to_string());
+        }
+    }
+
+    if !out.facts.is_empty() {
+        lines.push("facts:".to_string());
+        for fact in &out.facts {
+            let (fact_id, fact_type) = match fact.as_object() {
+                Some(obj) => (
+                    obj.get("fact_id").and_then(|v| v.as_str()).unwrap_or(""),
+                    obj.get("type").and_then(|v| v.as_str()).unwrap_or(""),
+                ),
+                None => ("", ""),
+            };
+            lines.push(format!("--- {} (type={})", fact_id, fact_type));
+            lines.push("```json".to_string());
+            lines.push(
+                serde_json::to_string(fact)
+                    .unwrap_or_else(|_| "{\"error\":\"failed to serialize fact\"}".to_string()),
+            );
+            lines.push("```".to_string());
+        }
+    }
+
     lines.push("included_files:".to_string());
     for f in &out.tree {
-        lines.push(format!("- {}", f.path));
+        let mut row = format!("- {}", f.path);
+        if let Some(bytes) = f.bytes {
+            row.push_str(&format!(" bytes={bytes}"));
+        }
+        if let Some(loc) = f.lines {
+            row.push_str(&format!(" lines={loc}"));
+        }
+        if let Some(lang) = f.lang.as_deref() {
+            row.push_str(&format!(" lang={lang}"));
+        }
+        lines.push(row);
     }
 
     lines.push(format!("symbols: {}", out.symbols.len()));
@@ -481,9 +535,53 @@ pub fn pack_selectors_text(out: &PackSelectorsOutput) -> String {
     lines.push(format!("- symbols: {}", out.selectors.symbols.join(", ")));
     lines.push(format!("- facts: {}", out.selectors.facts.join(", ")));
 
+    if !out.modules.is_empty() {
+        lines.push("modules:".to_string());
+        for m in &out.modules {
+            lines.push(format!("--- {} ({})", m.module_id, m.path));
+            lines.push("```toml".to_string());
+            lines.push(m.text.clone());
+            lines.push("```".to_string());
+        }
+    }
+
+    if !out.facts.is_empty() {
+        lines.push("facts:".to_string());
+        for fact in &out.facts {
+            let (fact_id, fact_type) = match fact.as_object() {
+                Some(obj) => (
+                    obj.get("fact_id").and_then(|v| v.as_str()).unwrap_or(""),
+                    obj.get("type").and_then(|v| v.as_str()).unwrap_or(""),
+                ),
+                None => ("", ""),
+            };
+            lines.push(format!("--- {} (type={})", fact_id, fact_type));
+            lines.push("```json".to_string());
+            lines.push(
+                serde_json::to_string(fact)
+                    .unwrap_or_else(|_| "{\"error\":\"failed to serialize fact\"}".to_string()),
+            );
+            lines.push("```".to_string());
+        }
+    }
+
     lines.push("included_files:".to_string());
     for f in &out.tree {
-        lines.push(format!("- {}", f.path));
+        let mut row = format!("- {}", f.path);
+        if f.kind == "dir" {
+            row.push_str(" (dir)");
+        } else if f.kind == "file" {
+            if let Some(bytes) = f.bytes {
+                row.push_str(&format!(" bytes={bytes}"));
+            }
+            if let Some(loc) = f.lines {
+                row.push_str(&format!(" lines={loc}"));
+            }
+            if let Some(lang) = f.lang.as_deref() {
+                row.push_str(&format!(" lang={lang}"));
+            }
+        }
+        lines.push(row);
     }
 
     lines.push(format!("symbols: {}", out.symbols.len()));

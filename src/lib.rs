@@ -1,7 +1,9 @@
 pub mod cli;
+pub mod config;
 pub mod error;
 pub mod index;
 pub mod io;
+pub mod overlay;
 pub mod policy;
 pub mod query;
 pub mod repo;

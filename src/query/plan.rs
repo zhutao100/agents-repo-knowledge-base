@@ -3,6 +3,7 @@ use std::path::Path;
 
 use clap::ValueEnum;
 
+use crate::config::obligations::ObligationsConfig;
 use crate::error::KbError;
 use crate::query::read::{read_text, reader_for};
 use crate::repo::diff::{list_changed_paths, DiffPathChange};
@@ -52,28 +53,6 @@ pub struct Required {
     pub module_cards: Vec<String>,
     pub fact_types: Vec<String>,
     pub session_capsule: bool,
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct ObligationsConfig {
-    #[serde(default)]
-    rule: Vec<ObligationRule>,
-}
-
-#[derive(Debug, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ObligationRule {
-    id: String,
-    when_path_prefix: String,
-
-    #[serde(default)]
-    require_module_card: Option<String>,
-
-    #[serde(default)]
-    require_fact_types: Option<Vec<String>>,
-
-    #[serde(default)]
-    require_session_capsule: Option<bool>,
 }
 
 pub fn plan_diff(diff_source: &DiffSource, policy: Policy) -> Result<PlanDiffOutput, KbError> {
