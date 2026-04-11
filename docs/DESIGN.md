@@ -11,9 +11,9 @@ summary: Below is a **kb tool repository design** that implements the combined r
 ### What this repo provides
 
 1. A local **`kb` CLI** that produces a **structured repo map** and **bounded context packs** using only **typed selectors** (paths, IDs, tags, enums)—no prompt/question free-text ingestion.
-2. A **commit gate** (pre-commit + CI) that fails if:
+2. A **commit gate** (pre-commit + CI) that blocks commits when:
 
-   * generated KB artifacts are stale, or
+   * generated KB artifacts are stale (pre-commit may mechanically regenerate + restage `kb/gen/*`), or
    * the diff triggers “knowledge obligations” that are not satisfied.
 3. A low-overhead integration path consistent with keeping `AGENTS.md` short as a TOC/map (Harness Engineering), but with a **first-class queryable substrate** beneath docs.
 
@@ -32,50 +32,22 @@ To keep the agent-facing surface area **clear, deterministic, and non-NLP**, the
 
 ---
 
-## Proposed repository layout (implementation target)
+## Repository layout (current)
 
-The layout below is the **intended end-state** for the kb tool repository. The current repo may start doc-only; the design requirements and contracts remain the same even if file names shift during implementation.
+This repository contains the **`kb` CLI implementation** (Rust) and a companion **onboarding skill**. It also dogfoods itself: the `kb/` directory in this repo is the knowledge base for the kb-tool repo itself.
 
 ```text
-kb-tool/
-├── LICENSE
-├── README.md
-├── AGENTS.md
-├── docs/
-│   ├── OPERATIONS.md           # exact CLI contract, examples, exit codes
-│   ├── DATA_MODEL.md           # schemas + invariants
-│   ├── INTEGRATION_CODEX.md    # “drop-in” AGENTS.md snippet + hooks
-│   ├── ENFORCEMENT.md          # pre-commit/CI gates + policy examples
-│   └── BACKENDS.md             # symbol/deps extractors (ctags, tree-sitter, etc.)
-├── schemas/                    # JSON Schemas for all persisted artifacts
-│   ├── gen_tree.schema.json
-│   ├── gen_symbols.schema.json
-│   ├── gen_deps.schema.json
-│   ├── atlas_module.schema.json
-│   ├── fact.schema.json
-│   └── session.schema.json
-├── kb/
-│   ├── config/
-│   │   ├── kb.toml             # defaults + thresholds
-│   │   ├── tags.toml           # tag vocabulary (validated)
-│   │   └── obligations.toml    # diff-triggered requirements
-│   ├── templates/
-│   │   ├── module.toml         # atlas module card template
-│   │   └── session.json        # capsule skeleton template
-│   └── bin/
-│       └── kb                  # installed CLI entrypoint (single binary or script)
-├── src/                        # implementation (language-agnostic in this design)
-│   ├── index/                  # generators: tree/symbols/deps
-│   ├── query/                  # describe/list/pack planners
-│   ├── policy/                 # obligations + validators
-│   └── io/                     # stable serialization, sorting, hashing
-└── scripts/
-    ├── install.sh              # installs kb + git hooks into a target repo
-    ├── hook-pre-commit.sh      # runs kb check/lint/obligations
-    └── ci-check.sh             # CI entrypoint
+agents-repo-knowledge-base/
+├── Cargo.toml
+├── docs/                        # MISSION / DESIGN / SPECS / ENFORCEMENT
+├── src/                         # `kb` CLI implementation (Rust)
+├── scripts/                     # gate runners for *this* repo
+├── skills/                      # onboarding skill for target repos
+├── kb/                          # this repo’s own KB artifacts (dogfood)
+└── tests/
 ```
 
-This repo is the **tool**. A target codebase vendors it (subtree/submodule/copy) or installs the binary, then commits **KB artifacts inside the target repo** (see next section).
+To onboard a *target* repo, use `skills/agents-repo-knowledge-base-skill/` (it installs `kb/` artifacts + `kb/tooling/*` wrappers into the target repo).
 
 ---
 
@@ -85,13 +57,18 @@ The kb tool generates and validates **deterministic, diffable** artifacts under 
 
 ```text
 <target-repo>/
+├── AGENTS.md                   # short map + “use kb first” snippet
 └── kb/
+    ├── AGENTS_kb.md            # typed kb recipe (installed by skill)
+    ├── config/                 # policy + vocab (human edited)
+    │   ├── tags.toml
+    │   └── obligations.toml
     ├── gen/                    # generated-first repo map (primary substrate)
     │   ├── kb_meta.json
     │   ├── tree.jsonl
     │   ├── symbols.jsonl
     │   ├── deps.jsonl
-    │   └── xrefs.jsonl           # optional cross-reference edges (diffable text)
+    │   └── xrefs.jsonl         # optional cross-reference edges (JSONL)
     ├── atlas/                  # thin human overlays (“why / edit points”)
     │   └── modules/
     │       ├── payments.core.toml
@@ -100,8 +77,15 @@ The kb tool generates and validates **deterministic, diffable** artifacts under 
     │   └── facts.jsonl
     ├── sessions/               # session capsules (thresholded requirement)
     │   └── 2026/04/PR-1234.json
-    └── cache/                  # local-only derived caches (default: gitignored)
-        └── xrefs.sqlite         # optional query acceleration; derived from gen/*
+    ├── templates/              # optional; tool falls back to built-in templates
+    │   └── session.json
+    ├── tooling/                # pre-commit + CI wrappers (installed by skill)
+    │   ├── install_kb.sh
+    │   ├── kb-gate.sh
+    │   ├── kb-pre-commit.sh
+    │   └── kb-ci-check.sh
+    ├── cache/                  # derived caches (gitignored)
+    └── .tmp/                   # scratch space (gitignored)
 ```
 
 This is exactly the “second layer under `docs/`” implied by the proposals: small stable atoms, anchored to code, queryable in one call.
@@ -149,8 +133,8 @@ Notes:
 
 #### 2) Describe (deterministic lookups)
 
-* `kb describe path --path <PATH> --depth <N> --include {dirs,files,top_symbols,entrypoints} --format {json|text}`
-* `kb describe module --id <MODULE_ID> --include {all,card,entrypoints,edit_points,related_facts} --format {json|text}`
+* `kb describe path --path <PATH> --depth <N> --include {dirs,files,top-symbols,entrypoints} --format {json|text}`
+* `kb describe module --id <MODULE_ID> --include {all,card,entrypoints,edit-points,related-facts} --format {json|text}`
 * `kb describe symbol --id <SYMBOL_ID> --include {def,signature,uses,deps} --format {json|text}`
 * `kb describe fact --id <FACT_ID> --format {json|text}`
 
@@ -265,17 +249,21 @@ The `kb plan diff` command reports which rules fired and what artifacts must be 
 
 ### Pre-commit hook (hard gate)
 
-`scripts/hook-pre-commit.sh` runs, in order:
+The canonical gate sequence is:
 
 1. `kb index check --diff-source staged`
 2. `kb lint all`
 3. `kb obligations check --diff-source staged`
 
-Failing any step blocks the commit, forcing **in-session** KB updates alongside code changes.
+This repo provides `scripts/hook-pre-commit.sh`, which also performs a small “mechanical self-heal”: if `kb/gen/*` is stale for the staged set, it runs `kb index regen --scope all --diff-source staged` and auto-stages `kb/gen` before running the canonical gate.
+
+In target repos onboarded via `skills/agents-repo-knowledge-base-skill/`, the equivalent entrypoint is `kb/tooling/kb-pre-commit.sh` (same behavior, plus locating `kb` via `.kb-tool/bin/kb` or PATH).
+
+Failing the gate blocks the commit, forcing **in-session** KB updates alongside code changes.
 
 ### CI (anti-bypass)
 
-CI repeats the same checks on the merge commit (or PR head) and fails on any discrepancy. This matches the Harness Engineering “mechanical enforcement” philosophy while addressing the missing “cheap navigation memory” layer.
+CI repeats the same checks (typically via `scripts/ci-check.sh` in this repo, or `kb/tooling/kb-ci-check.sh` in a target repo) and fails on any discrepancy. This matches the Harness Engineering “mechanical enforcement” philosophy while addressing the missing “cheap navigation memory” layer.
 
 ---
 
@@ -288,7 +276,7 @@ This is the “lowest-overhead” integration path you asked for: a brief instru
 
 Before opening many files or running wide searches, use the local kb tool:
 
-- Directory map: `kb describe path --path <PATH> --depth 2 --include dirs,files,top_symbols --format text`
+- Directory map: `kb describe path --path <PATH> --depth 2 --include dirs,files,top-symbols --format text`
 - Module intent + edit points: `kb describe module --id <MODULE_ID> --format text`
 - Diff-driven obligations (what knowledge must update): `kb plan diff --diff-source worktree --format text`
 - Single-call context pack for current changes: `kb pack diff --diff-source worktree --radius 1 --max-bytes 120000 --snippet-lines 80 --format text`

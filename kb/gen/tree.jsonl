@@ -12,8 +12,9 @@
 {"path":"Cargo.lock","kind":"file","bytes":17227,"lines":663,"lang":"unknown"}
 {"path":"Cargo.toml","kind":"file","bytes":368,"lines":16,"lang":"toml"}
 {"path":"LICENSE","kind":"file","bytes":4300,"lines":75,"lang":"unknown"}
+{"path":"README.md","kind":"file","bytes":2327,"lines":62,"lang":"markdown"}
 {"path":"docs/","kind":"dir"}
-{"path":"docs/DESIGN.md","kind":"file","bytes":14646,"lines":324,"lang":"markdown"}
+{"path":"docs/DESIGN.md","kind":"file","bytes":14296,"lines":312,"lang":"markdown"}
 {"path":"docs/ENFORCEMENT.md","kind":"file","bytes":814,"lines":26,"lang":"markdown"}
 {"path":"docs/MISSION.md","kind":"file","bytes":8162,"lines":107,"lang":"markdown"}
 {"path":"docs/SPECS.md","kind":"file","bytes":10503,"lines":343,"lang":"markdown"}
